@@ -387,7 +387,7 @@
             }
             
             try {
-                // This URL is the conventional endpoint for a Netlify function.
+                // This is the direct, absolute path to the Netlify function.
                 const response = await fetch('/.netlify/functions/send-email', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
