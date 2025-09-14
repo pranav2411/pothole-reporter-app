@@ -7,3 +7,10 @@
 [functions]
   # This ensures dependencies from your package.json (like 'resend') are correctly installed and bundled.
   node_bundler = "esbuild"
+
+# This redirect rule makes the function's URL cleaner and more reliable.
+# It proxies any request from /api/* to the corresponding function.
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
