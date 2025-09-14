@@ -1,0 +1,9 @@
+# This configuration file tells Netlify how to build and deploy your site.
+[build]
+  # This line explicitly points to the directory where your serverless functions are stored.
+  functions = "netlify/functions/"
+
+# This section configures the function bundling.
+[functions]
+  # This ensures dependencies from your package.json (like 'resend') are correctly installed and bundled.
+  node_bundler = "esbuild"
