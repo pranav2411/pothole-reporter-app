@@ -1,8 +1,8 @@
 // --- IMPORTS ---
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
-// FIX: Use a namespace import for robust compatibility with the CommonJS geofire-common package.
-import * as geofire from 'geofire-common';
+// FIX: Use the correct named imports from the geofire-common package.
+import { geohashQueryBounds, geohashForLocation } from 'geofire-common';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import axios from 'axios';
 
@@ -17,8 +17,6 @@ const requiredEnvVars = [
 const missingEnvVars = requiredEnvVars.filter(key => !process.env[key]);
 if (missingEnvVars.length > 0) {
     console.error(`Missing required environment variables: ${missingEnvVars.join(', ')}`);
-    // We will throw an error here to prevent the function from being used in a broken state.
-    // The handler will catch this on invocation and return a 500 error.
 }
 
 // --- INITIALIZATION ---
@@ -43,7 +41,6 @@ const DUPLICATE_CHECK_RADIUS_METERS = 20;
 
 // --- MAIN HANDLER FUNCTION ---
 export default async function handler(request, response) {
-    // Check if any environment variables were missing during startup
     if (missingEnvVars.length > 0) {
         return response.status(500).json({ message: `Server configuration error: Missing environment variables: ${missingEnvVars.join(', ')}` });
     }
@@ -57,7 +54,6 @@ export default async function handler(request, response) {
             return response.status(400).json({ message: 'Missing image or location data.' });
         }
 
-        // --- 1. Pothole Detection (Roboflow) ---
         const roboflowResult = await detectPothole(image);
         if (roboflowResult.predictions.length === 0) {
             return response.status(200).json({ 
@@ -66,7 +62,6 @@ export default async function handler(request, response) {
             });
         }
 
-        // --- 2. Check for Duplicates ---
         if (location.latitude && location.longitude) {
             const duplicateReport = await findDuplicateReport(location.latitude, location.longitude);
             if (duplicateReport) {
@@ -83,19 +78,18 @@ export default async function handler(request, response) {
             }
         }
 
-        // --- 3. Advanced Analysis (Gemini AI & Weather) ---
         const [assessment, weather, annotatedImage] = await Promise.all([
             getAIAssessment(image),
             getWeather(location.latitude, location.longitude),
             annotateImage(image, roboflowResult.predictions)
         ]);
 
-        // --- 4. Save New Report to Firestore ---
         const newReport = {
             address: location.address,
             latitude: location.latitude,
             longitude: location.longitude,
-            geohash: location.latitude ? geofire.getGeohashesForRadius([location.latitude, location.longitude], 1)[0] : null,
+            // FIX: Use the correct function name 'geohashForLocation'
+            geohash: location.latitude ? geohashForLocation([location.latitude, location.longitude]) : null,
             imageUrl: `data:image/jpeg;base64,${annotatedImage}`,
             status: 'Submitted',
             confirmations: 1,
@@ -108,7 +102,6 @@ export default async function handler(request, response) {
         };
         await db.collection('reports').add(newReport);
 
-        // --- 5. Return Success Response ---
         return response.status(200).json({
             title: "Report Submitted!",
             message: "Thank you! Your report has been submitted with our advanced AI analysis.",
@@ -123,7 +116,6 @@ export default async function handler(request, response) {
 }
 
 // --- HELPER FUNCTIONS ---
-// ... (The rest of the helper functions remain the same)
 async function detectPothole(base64Image) {
     const response = await axios({
         method: "POST",
@@ -136,7 +128,8 @@ async function detectPothole(base64Image) {
 
 async function findDuplicateReport(lat, lon) {
     const radiusInM = DUPLICATE_CHECK_RADIUS_METERS;
-    const bounds = geofire.getGeohashesForRadius([lat, lon], radiusInM);
+    // FIX: Use the correct function name 'geohashQueryBounds'
+    const bounds = geohashQueryBounds([lat, lon], radiusInM);
 
     const promises = bounds.map(b => {
         const q = db.collection('reports')
@@ -207,5 +200,4 @@ function haversineDistance(coords1, coords2) {
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
 }
-
 
