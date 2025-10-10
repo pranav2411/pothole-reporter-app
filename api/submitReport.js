@@ -1,5 +1,5 @@
 // --- IMPORTS ---
-import { initializeApp, cert } from 'firebase-admin/app';
+import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 // FIX: Correctly import from the CommonJS geofire-common package
 import pkg from 'geofire-common';
@@ -11,8 +11,8 @@ import axios from 'axios';
 // Initialize Firebase Admin SDK
 // IMPORTANT: You need to create a service account key in Firebase and add it as an environment variable
 const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
-// Check if the app is already initialized to prevent errors during hot-reloads
-if (!initializeApp.length) {
+// FIX: Use getApps() to safely initialize Firebase, preventing duplicate app errors.
+if (!getApps().length) {
     initializeApp({ credential: cert(serviceAccount) });
 }
 const db = getFirestore();
