@@ -128,24 +128,46 @@ export default async function handler(request, response) {
 
 // --- HELPER FUNCTIONS ---
 async function sendEmailReport(reportDetails, annotatedImageBase64) {
-    const { address, severity, estimatedCost, potholeType, confirmations } = reportDetails;
+    const { address, severity, estimatedCost, potholeType, confirmations, latitude, longitude } = reportDetails;
     const isUpdate = confirmations > 1;
+    const googleMapsLink = (latitude && longitude) ? `https://www.google.com/maps?q=${latitude},${longitude}` : null;
+
+    let aiAnalysisHtml = '';
+    if (severity && severity !== 'N/A') {
+        aiAnalysisHtml = `
+            <h2>AI-Powered Damage Assessment:</h2>
+            <ul>
+                <li><strong>Severity Score:</strong> ${severity}/10</li>
+                <li><strong>Pothole Type:</strong> ${potholeType}</li>
+                <li><strong>Estimated Repair Cost:</strong> ${estimatedCost}</li>
+            </ul>
+        `;
+    } else {
+        aiAnalysisHtml = `
+            <h2>AI-Powered Damage Assessment:</h2>
+            <p>Advanced AI analysis could not be completed for this report.</p>
+        `;
+    }
 
     const subject = isUpdate 
-        ? `Pothole Report Confirmed: ${address || 'Location'}` 
-        : `New Pothole Report: ${address || 'Location'}`;
+        ? `Pothole Report Confirmed: ${address || 'New Report'}` 
+        : `New Pothole Report Submitted: ${address || 'New Report'}`;
 
     const htmlBody = `
-        <h1>${isUpdate ? 'Pothole Confirmation Update' : 'New Pothole Report'}</h1>
-        <p>A pothole has been reported at or near: <strong>${address || 'Address not available'}</strong></p>
-        <h2>AI Analysis:</h2>
-        <ul>
-            <li><strong>Severity:</strong> ${severity}/10</li>
-            <li><strong>Type:</strong> ${potholeType}</li>
-            <li><strong>Estimated Cost:</strong> ${estimatedCost}</li>
-            <li><strong>Confirmations:</strong> ${confirmations}</li>
-        </ul>
-        <p>Please see the attached image for visual confirmation.</p>
+        <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+            <h1>${isUpdate ? 'Pothole Confirmation Update' : 'New Pothole Report Submitted'}</h1>
+            <p>A new report has been filed and requires attention.</p>
+            <h2>Report Details:</h2>
+            <ul>
+                <li><strong>Location:</strong> ${address || 'Address not available'}</li>
+                ${googleMapsLink ? `<li><strong>Map Link:</strong> <a href="${googleMapsLink}">View on Google Maps</a></li>` : ''}
+                <li><strong>Total Confirmations:</strong> ${confirmations}</li>
+            </ul>
+            ${aiAnalysisHtml}
+            <p>The annotated image showing the detected pothole is attached to this email for visual confirmation and analysis.</p>
+            <hr>
+            <p style="font-size: 0.8em; color: #888;">This is an automated message from the Pothole Reporter App.</p>
+        </div>
     `;
 
     try {
@@ -156,7 +178,7 @@ async function sendEmailReport(reportDetails, annotatedImageBase64) {
             html: htmlBody,
             attachments: [
                 {
-                    filename: 'pothole_image.jpg',
+                    filename: 'pothole_image_detected.jpg',
                     content: annotatedImageBase64,
                     encoding: 'base64',
                 },
