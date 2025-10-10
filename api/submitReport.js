@@ -237,9 +237,17 @@ async function findDuplicateReport(lat, lon) {
 
 async function getAIAssessment(base64Image) {
     const prompt = `Analyze this image of a road surface. Provide a JSON response with three keys: "severity" (a number from 1-10, where 10 is most severe), "potholeType" (e.g., "Crack", "Pothole", "Utility Cut", "Rutting"), and "estimatedCost" (a string representing a rough, non-binding cost estimate in USD, like "$50 - $150"). Focus only on the most significant pothole if there are multiple. Your response must be only the JSON object, nothing else.`;
-    const imagePart = { inlineData: { data: base64Image, mimeType: 'image/jpeg' } };
-
+    
     try {
+        // FIX: Redraw the image on a canvas to strip EXIF orientation data from phone uploads
+        const imageForAI = await loadImage(`data:image/jpeg;base64,${base64Image}`);
+        const canvas = createCanvas(imageForAI.width, imageForAI.height);
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(imageForAI, 0, 0);
+        const correctedBase64 = canvas.toDataURL('image/jpeg').split(',')[1];
+        
+        const imagePart = { inlineData: { data: correctedBase64, mimeType: 'image/jpeg' } };
+
         const result = await geminiModel.generateContent([prompt, imagePart]);
         
         if (!result.response || !result.response.text) {
