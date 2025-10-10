@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pothole Reporter - Admin Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #0d1117; color: #c9d1d9; }
+        .card { background-color: #161b22; border: 1px solid #30363d; }
+        .table-header { background-color: #21262d; }
+        .table-row:nth-child(even) { background-color: #161b22; }
+        .table-row:nth-child(odd) { background-color: #0d1117; }
+        #map-admin { height: 500px; border-radius: 0.5rem; border: 1px solid #30363d; }
+        .leaflet-popup-content-wrapper, .leaflet-popup-tip { background: #161b22; color: #c9d1d9; border: 1px solid #30363d; }
+        .status-submitted { color: #f85149; }
+        .status-in-review { color: #e3b341; }
+        .status-repaired { color: #2ea043; }
+    </style>
+</head>
+<body class="p-4 sm:p-6 lg:p-8">
+
+    <!-- Login Screen -->
+    <div id="login-screen" class="max-w-md mx-auto mt-20 card rounded-lg p-8 shadow-lg">
+        <h1 class="text-2xl font-bold text-center text-gray-100 mb-6">Admin Login</h1>
+        <div class="space-y-4">
+            <input type="email" id="email-input" placeholder="Email" class="w-full bg-gray-900 border border-gray-700 rounded-md px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-cyan-500">
+            <input type="password" id="password-input" placeholder="Password" class="w-full bg-gray-900 border border-gray-700 rounded-md px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-cyan-500">
+            <button id="login-button" class="w-full bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2 px-4 rounded-lg">Login</button>
+            <p id="login-error" class="text-red-400 text-sm text-center"></p>
+        </div>
+    </div>
+
+    <!-- Main Dashboard (Hidden by default) -->
+    <div id="dashboard" class="hidden">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-3xl font-bold text-gray-100">Pothole Management Dashboard</h1>
+            <button id="logout-button" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg">Logout</button>
+        </div>
+
+        <!-- Map View -->
+        <div class="card rounded-lg p-4 shadow-lg mb-8">
+            <h2 class="text-xl font-semibold mb-4 text-gray-200">Report Locations</h2>
+            <div id="map-admin"></div>
+        </div>
+
+        <!-- Table View -->
+        <div class="card rounded-lg shadow-lg overflow-hidden">
+            <div class="p-4">
+                 <h2 class="text-xl font-semibold text-gray-200">All Reports</h2>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm text-left">
+                    <thead class="table-header text-xs text-gray-300 uppercase">
+                        <tr>
+                            <th scope="col" class="px-6 py-3">Address</th>
+                            <th scope="col" class="px-6 py-3">Severity</th>
+                            <th scope="col" class="px-6 py-3">Confirmations</th>
+                            <th scope="col" class="px-6 py-3">Status</th>
+                            <th scope="col" class="px-6 py-3">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="reports-table-body">
+                        <!-- Rows will be dynamically inserted here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDK Scripts -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
+
+        // --- CONFIG & INITIALIZATION ---
+        const firebaseConfig = {
+            apiKey: "YOUR_FIREBASE_API_KEY",
+            authDomain: "YOUR_FIREBASE_AUTH_DOMAIN",
+            projectId: "YOUR_FIREBASE_PROJECT_ID",
+            storageBucket: "YOUR_FIREBASE_STORAGE_BUCKET",
+            messagingSenderId: "YOUR_FIREBASE_MESSAGING_SENDER_ID",
+            appId: "YOUR_FIREBASE_APP_ID"
+        };
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+
+        // --- DOM ELEMENTS ---
+        const loginScreen = document.getElementById('login-screen');
+        const dashboard = document.getElementById('dashboard');
+        const loginButton = document.getElementById('login-button');
+        const logoutButton = document.getElementById('logout-button');
+        const emailInput = document.getElementById('email-input');
+        const passwordInput = document.getElementById('password-input');
+        const loginError = document.getElementById('login-error');
+        const reportsTableBody = document.getElementById('reports-table-body');
+
+        let map;
+        let reportsData = [];
+
+        // --- AUTHENTICATION ---
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                loginScreen.classList.add('hidden');
+                dashboard.classList.remove('hidden');
+                loadDashboardData();
+            } else {
+                loginScreen.classList.remove('hidden');
+                dashboard.classList.add('hidden');
+            }
+        });
+
+        loginButton.addEventListener('click', async () => {
+            const email = emailInput.value;
+            const password = passwordInput.value;
+            loginError.textContent = '';
+            try {
+                await signInWithEmailAndPassword(auth, email, password);
+            } catch (error) {
+                loginError.textContent = 'Login failed. Please check your credentials.';
+                console.error("Login error:", error);
+            }
+        });
+
+        logoutButton.addEventListener('click', async () => {
+            try {
+                await signOut(auth);
+            } catch (error) {
+                console.error("Logout error:", error);
+            }
+        });
+
+        // --- DASHBOARD LOGIC ---
+        async function loadDashboardData() {
+            try {
+                const response = await fetch('/api/getReports');
+                reportsData = await response.json();
+                renderTable(reportsData);
+                initializeMap(reportsData);
+            } catch (error) {
+                console.error("Failed to load dashboard data:", error);
+            }
+        }
+
+        function renderTable(reports) {
+            reportsTableBody.innerHTML = ''; // Clear table
+            reports.forEach(report => {
+                const row = document.createElement('tr');
+                row.className = 'table-row border-b border-gray-700';
+                row.innerHTML = `
+                    <td class="px-6 py-4 font-medium text-gray-200">${report.address || 'N/A'}</td>
+                    <td class="px-6 py-4 text-center">${report.severity || 'N/A'}</td>
+                    <td class="px-6 py-4 text-center">${report.confirmations}</td>
+                    <td class="px-6 py-4"><span class="font-semibold status-${report.status.toLowerCase().replace(' ', '-')}">${report.status}</span></td>
+                    <td class="px-6 py-4">
+                        <select data-id="${report.id}" class="change-status-select bg-gray-700 border border-gray-600 text-white text-sm rounded-lg focus:ring-cyan-500 focus:border-cyan-500 block w-full p-2.5">
+                            <option ${report.status === 'Submitted' ? 'selected' : ''}>Submitted</option>
+                            <option ${report.status === 'In Review' ? 'selected' : ''}>In Review</option>
+                            <option ${report.status === 'Repaired' ? 'selected' : ''}>Repaired</option>
+                        </select>
+                    </td>
+                `;
+                reportsTableBody.appendChild(row);
+            });
+        }
+        
+        function initializeMap(reports) {
+            if (!map) {
+                map = L.map('map-admin').setView([26.9124, 75.7873], 12);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 19,
+                    attribution: '© OpenStreetMap'
+                }).addTo(map);
+            }
+            
+            // Clear existing markers
+            map.eachLayer(layer => {
+                if (layer instanceof L.Marker) map.removeLayer(layer);
+            });
+
+            reports.forEach(report => {
+                if (report.latitude && report.longitude) {
+                    const marker = L.marker([report.latitude, report.longitude]).addTo(map);
+                    marker.bindPopup(`<b>${report.address}</b><br>Status: ${report.status}`);
+                }
+            });
+        }
+        
+        reportsTableBody.addEventListener('change', async (e) => {
+            if (e.target.classList.contains('change-status-select')) {
+                const reportId = e.target.dataset.id;
+                const newStatus = e.target.value;
+                try {
+                    const response = await fetch('/api/updateReportStatus', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ reportId, newStatus })
+                    });
+                    if (!response.ok) {
+                        throw new Error('Failed to update status');
+                    }
+                    // Refresh data to show changes
+                    loadDashboardData();
+                } catch (error) {
+                    console.error("Error updating status:", error);
+                    alert("Failed to update report status.");
+                }
+            }
+        });
+
+    </script>
+</body>
+</html>
