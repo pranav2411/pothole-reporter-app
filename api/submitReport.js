@@ -5,7 +5,8 @@ import { geohashQueryBounds, geohashForLocation } from 'geofire-common';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import axios from 'axios';
 import { Resend } from 'resend';
-import { createCanvas, loadImage } from 'canvas';
+// Use the pre-compiled canvas alternative for serverless environments
+import { createCanvas, loadImage } from '@napi-rs/canvas';
 
 // --- ENVIRONMENT VARIABLE CHECK ---
 // This check runs once when the function is initialized
@@ -14,7 +15,7 @@ const requiredEnvVars = [
     'GEMINI_API_KEY',
     'ROBOFLOW_API_KEY',
     'WEATHER_API_KEY',
-    'RESEND_API_KEY' // Added Resend API Key
+    'RESEND_API_KEY'
 ];
 const missingEnvVars = requiredEnvVars.filter(key => !process.env[key]);
 if (missingEnvVars.length > 0) {
@@ -25,6 +26,7 @@ if (missingEnvVars.length > 0) {
 let db;
 try {
     const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
+    // Use the more reliable check for existing apps
     if (!getApps().length) {
         initializeApp({ credential: cert(serviceAccount) });
     }
@@ -44,6 +46,7 @@ const DUPLICATE_CHECK_RADIUS_METERS = 20;
 
 // --- MAIN HANDLER FUNCTION ---
 export default async function handler(request, response) {
+    // Check if any environment variables were missing during startup
     if (missingEnvVars.length > 0) {
         return response.status(500).json({ message: `Server configuration error: Missing environment variables: ${missingEnvVars.join(', ')}` });
     }
@@ -181,6 +184,7 @@ async function findDuplicateReport(lat, lon) {
     const bounds = geohashQueryBounds([lat, lon], radiusInM);
 
     const promises = bounds.map(b => {
+        // This simpler query avoids the need for a composite index.
         const q = db.collection('reports')
             .orderBy('geohash')
             .startAt(b[0])
@@ -196,6 +200,7 @@ async function findDuplicateReport(lat, lon) {
         });
     });
 
+    // We filter out repaired reports in the code instead of in the query.
     const unrepairedDocs = matchingDocs.filter(doc => doc.status !== 'Repaired');
 
     const center = { lat, lon };
