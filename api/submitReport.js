@@ -1,34 +1,53 @@
 // --- IMPORTS ---
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
-// FIX: Correctly import from the CommonJS geofire-common package
-import pkg from 'geofire-common';
-const { getGeohashesForRadius } = pkg;
+// FIX: Use a namespace import for robust compatibility with the CommonJS geofire-common package.
+import * as geofire from 'geofire-common';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import axios from 'axios';
 
-// --- INITIALIZATION ---
-// Initialize Firebase Admin SDK
-// IMPORTANT: You need to create a service account key in Firebase and add it as an environment variable
-const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
-// FIX: Use getApps() to safely initialize Firebase, preventing duplicate app errors.
-if (!getApps().length) {
-    initializeApp({ credential: cert(serviceAccount) });
+// --- ENVIRONMENT VARIABLE CHECK ---
+// This check runs once when the function is initialized
+const requiredEnvVars = [
+    'FIREBASE_SERVICE_ACCOUNT_KEY',
+    'GEMINI_API_KEY',
+    'ROBOFLOW_API_KEY',
+    'WEATHER_API_KEY'
+];
+const missingEnvVars = requiredEnvVars.filter(key => !process.env[key]);
+if (missingEnvVars.length > 0) {
+    console.error(`Missing required environment variables: ${missingEnvVars.join(', ')}`);
+    // We will throw an error here to prevent the function from being used in a broken state.
+    // The handler will catch this on invocation and return a 500 error.
 }
-const db = getFirestore();
 
-// Initialize Google Gemini AI
+// --- INITIALIZATION ---
+let db;
+try {
+    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
+    if (!getApps().length) {
+        initializeApp({ credential: cert(serviceAccount) });
+    }
+    db = getFirestore();
+} catch (e) {
+    console.error('Failed to initialize Firebase Admin SDK:', e);
+}
+
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const geminiModel = genAI.getGenerativeModel({ model: "gemini-pro-vision"});
 
 // --- CONFIGURATION ---
 const ROBOFLOW_API_KEY = process.env.ROBOFLOW_API_KEY;
 const WEATHER_API_KEY = process.env.WEATHER_API_KEY;
-const DUPLICATE_CHECK_RADIUS_METERS = 20; // Check for duplicates within a 20m radius
+const DUPLICATE_CHECK_RADIUS_METERS = 20;
 
 // --- MAIN HANDLER FUNCTION ---
 export default async function handler(request, response) {
-    if (request.method !== 'POST') {
+    // Check if any environment variables were missing during startup
+    if (missingEnvVars.length > 0) {
+        return response.status(500).json({ message: `Server configuration error: Missing environment variables: ${missingEnvVars.join(', ')}` });
+    }
+     if (request.method !== 'POST') {
         return response.status(405).json({ message: 'Method Not Allowed' });
     }
 
@@ -51,7 +70,6 @@ export default async function handler(request, response) {
         if (location.latitude && location.longitude) {
             const duplicateReport = await findDuplicateReport(location.latitude, location.longitude);
             if (duplicateReport) {
-                // If a duplicate is found, increment its confirmation count and return
                 const reportRef = db.collection('reports').doc(duplicateReport.id);
                 await reportRef.update({
                     confirmations: duplicateReport.confirmations + 1,
@@ -77,7 +95,7 @@ export default async function handler(request, response) {
             address: location.address,
             latitude: location.latitude,
             longitude: location.longitude,
-            geohash: location.latitude ? getGeohashesForRadius([location.latitude, location.longitude], 1)[0] : null,
+            geohash: location.latitude ? geofire.getGeohashesForRadius([location.latitude, location.longitude], 1)[0] : null,
             imageUrl: `data:image/jpeg;base64,${annotatedImage}`,
             status: 'Submitted',
             confirmations: 1,
@@ -105,7 +123,7 @@ export default async function handler(request, response) {
 }
 
 // --- HELPER FUNCTIONS ---
-
+// ... (The rest of the helper functions remain the same)
 async function detectPothole(base64Image) {
     const response = await axios({
         method: "POST",
@@ -118,7 +136,7 @@ async function detectPothole(base64Image) {
 
 async function findDuplicateReport(lat, lon) {
     const radiusInM = DUPLICATE_CHECK_RADIUS_METERS;
-    const bounds = getGeohashesForRadius([lat, lon], radiusInM);
+    const bounds = geofire.getGeohashesForRadius([lat, lon], radiusInM);
 
     const promises = bounds.map(b => {
         const q = db.collection('reports')
@@ -137,16 +155,14 @@ async function findDuplicateReport(lat, lon) {
         });
     });
 
-    // Post-filter to find the closest match within the radius
-    // This is a simplified distance check. For production, use a more accurate library.
     const center = { lat, lon };
     for (const doc of matchingDocs) {
         const distanceInKm = haversineDistance(center, { lat: doc.latitude, lon: doc.longitude });
         if (distanceInKm * 1000 <= radiusInM) {
-            return doc; // Found a duplicate
+            return doc;
         }
     }
-    return null; // No duplicate found
+    return null;
 }
 
 async function getAIAssessment(base64Image) {
@@ -156,7 +172,6 @@ async function getAIAssessment(base64Image) {
     try {
         const result = await geminiModel.generateContent([prompt, imagePart]);
         const text = result.response.text();
-        // Clean up the text to extract the JSON object
         const jsonString = text.replace('```json', '').replace('```', '').trim();
         return JSON.parse(jsonString);
     } catch (e) {
@@ -177,16 +192,10 @@ async function getWeather(lat, lon) {
     }
 }
 
-// NOTE: This is a simplified function to draw boxes and is not included for brevity.
-// The annotated image is now created on the backend and returned.
 async function annotateImage(base64Image, predictions) {
-    // In a real-world scenario, you would use a library like 'canvas' on the backend.
-    // For now, we'll just return the original image for simplicity.
-    // To implement this fully, you would need to set up a Node.js canvas environment.
     return base64Image;
 }
 
-// Haversine distance function for duplicate checking
 function haversineDistance(coords1, coords2) {
     function toRad(x) { return x * Math.PI / 180; }
     const R = 6371; // Earth radius in km
@@ -198,4 +207,5 @@ function haversineDistance(coords1, coords2) {
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
 }
+
 
