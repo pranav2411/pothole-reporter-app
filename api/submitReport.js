@@ -1,7 +1,9 @@
 // --- IMPORTS ---
 import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
-import { getGeohashesForRadius } from 'geofire-common';
+// FIX: Correctly import from the CommonJS geofire-common package
+import pkg from 'geofire-common';
+const { getGeohashesForRadius } = pkg;
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import axios from 'axios';
 
@@ -9,6 +11,7 @@ import axios from 'axios';
 // Initialize Firebase Admin SDK
 // IMPORTANT: You need to create a service account key in Firebase and add it as an environment variable
 const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
+// Check if the app is already initialized to prevent errors during hot-reloads
 if (!initializeApp.length) {
     initializeApp({ credential: cert(serviceAccount) });
 }
@@ -195,3 +198,4 @@ function haversineDistance(coords1, coords2) {
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
 }
+
