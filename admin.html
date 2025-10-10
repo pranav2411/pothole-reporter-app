@@ -77,14 +77,16 @@
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
 
         // --- CONFIG & INITIALIZATION ---
-        const firebaseConfig = {
-            apiKey: "YOUR_FIREBASE_API_KEY",
-            authDomain: "YOUR_FIREBASE_AUTH_DOMAIN",
-            projectId: "YOUR_FIREBASE_PROJECT_ID",
-            storageBucket: "YOUR_FIREBASE_STORAGE_BUCKET",
-            messagingSenderId: "YOUR_FIREBASE_MESSAGING_SENDER_ID",
-            appId: "YOUR_FIREBASE_APP_ID"
-        };
+        // --- In your admin.html file ---
+const firebaseConfig = {
+    apiKey: "AIzaSyA9M2GhHPTGSfiis4jaEECB-n98J_mE-jg",
+    authDomain: "pothole-reporter-app-dadb4.firebaseapp.com",
+    projectId: "pothole-reporter-app-dadb4",
+    storageBucket: "pothole-reporter-app-dadb4.appspot.com",
+    messagingSenderId: "34414624141",
+    appId: "1:34414624141:web:a001b8c1cf1cb2618a91c4"
+};
+
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
 

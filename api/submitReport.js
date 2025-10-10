@@ -5,11 +5,9 @@ import { geohashQueryBounds, geohashForLocation } from 'geofire-common';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import axios from 'axios';
 import { Resend } from 'resend';
-// Use the pre-compiled canvas alternative for serverless environments
 import { createCanvas, loadImage } from '@napi-rs/canvas';
 
 // --- ENVIRONMENT VARIABLE CHECK ---
-// This check runs once when the function is initialized
 const requiredEnvVars = [
     'FIREBASE_SERVICE_ACCOUNT_KEY',
     'GEMINI_API_KEY',
@@ -26,7 +24,6 @@ if (missingEnvVars.length > 0) {
 let db;
 try {
     const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
-    // Use the more reliable check for existing apps
     if (!getApps().length) {
         initializeApp({ credential: cert(serviceAccount) });
     }
@@ -46,7 +43,6 @@ const DUPLICATE_CHECK_RADIUS_METERS = 20;
 
 // --- MAIN HANDLER FUNCTION ---
 export default async function handler(request, response) {
-    // Check if any environment variables were missing during startup
     if (missingEnvVars.length > 0) {
         return response.status(500).json({ message: `Server configuration error: Missing environment variables: ${missingEnvVars.join(', ')}` });
     }
@@ -179,8 +175,8 @@ async function sendEmailReport(reportDetails, annotatedImageBase64) {
             attachments: [
                 {
                     filename: 'pothole_image_detected.jpg',
-                    content: annotatedImageBase64,
-                    encoding: 'base64',
+                    // FIX: Convert the base64 string to a Buffer for reliable attachments
+                    content: Buffer.from(annotatedImageBase64, 'base64'),
                 },
             ],
         });
@@ -206,7 +202,6 @@ async function findDuplicateReport(lat, lon) {
     const bounds = geohashQueryBounds([lat, lon], radiusInM);
 
     const promises = bounds.map(b => {
-        // This simpler query avoids the need for a composite index.
         const q = db.collection('reports')
             .orderBy('geohash')
             .startAt(b[0])
@@ -222,7 +217,6 @@ async function findDuplicateReport(lat, lon) {
         });
     });
 
-    // We filter out repaired reports in the code instead of in the query.
     const unrepairedDocs = matchingDocs.filter(doc => doc.status !== 'Repaired');
 
     const center = { lat, lon };
@@ -269,8 +263,7 @@ async function annotateImage(base64Image, predictions) {
         const ctx = canvas.getContext('2d');
         ctx.drawImage(image, 0, 0);
 
-        // Style for the bounding box
-        ctx.strokeStyle = '#00FF00'; // Green color
+        ctx.strokeStyle = '#00FF00';
         ctx.lineWidth = 4;
         ctx.font = '20px Arial';
         ctx.fillStyle = '#00FF00';
@@ -282,22 +275,20 @@ async function annotateImage(base64Image, predictions) {
             ctx.strokeRect(x, y, p.width, p.height);
             
             const label = `${p.class} (${(p.confidence * 100).toFixed(1)}%)`;
-            // Position the label above the box, or inside if it's at the top edge
             const textY = y > 20 ? y - 5 : y + 20;
             ctx.fillText(label, x, textY);
         });
 
-        // Return the new image as a base64 string, without the data URI prefix
         return canvas.toDataURL('image/jpeg').split(',')[1];
     } catch (error) {
         console.error('Failed to annotate image:', error);
-        return base64Image; // Return original image if annotation fails
+        return base64Image;
     }
 }
 
 function haversineDistance(coords1, coords2) {
     function toRad(x) { return x * Math.PI / 180; }
-    const R = 6371; // Earth radius in km
+    const R = 6371;
     const dLat = toRad(coords2.lat - coords1.lat);
     const dLon = toRad(coords2.lon - coords1.lon);
     const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
