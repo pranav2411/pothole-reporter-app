@@ -1,10 +1,11 @@
 // --- IMPORTS ---
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
-// FIX: Use the correct named imports from the geofire-common package.
 import { geohashQueryBounds, geohashForLocation } from 'geofire-common';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import axios from 'axios';
+import { Resend } from 'resend';
+import { createCanvas, loadImage } from 'canvas';
 
 // --- ENVIRONMENT VARIABLE CHECK ---
 // This check runs once when the function is initialized
@@ -12,7 +13,8 @@ const requiredEnvVars = [
     'FIREBASE_SERVICE_ACCOUNT_KEY',
     'GEMINI_API_KEY',
     'ROBOFLOW_API_KEY',
-    'WEATHER_API_KEY'
+    'WEATHER_API_KEY',
+    'RESEND_API_KEY' // Added Resend API Key
 ];
 const missingEnvVars = requiredEnvVars.filter(key => !process.env[key]);
 if (missingEnvVars.length > 0) {
@@ -33,6 +35,7 @@ try {
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const geminiModel = genAI.getGenerativeModel({ model: "gemini-pro-vision"});
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 // --- CONFIGURATION ---
 const ROBOFLOW_API_KEY = process.env.ROBOFLOW_API_KEY;
@@ -55,6 +58,8 @@ export default async function handler(request, response) {
         }
 
         const roboflowResult = await detectPothole(image);
+        const annotatedImage = await annotateImage(image, roboflowResult.predictions);
+        
         if (roboflowResult.predictions.length === 0) {
             return response.status(200).json({ 
                 title: "No Pothole Detected",
@@ -70,25 +75,27 @@ export default async function handler(request, response) {
                     confirmations: duplicateReport.confirmations + 1,
                     lastConfirmedAt: new Date()
                 });
+                
+                const updatedReportDetails = { ...duplicateReport, confirmations: duplicateReport.confirmations + 1 };
+                await sendEmailReport(updatedReportDetails, annotatedImage);
+
                 return response.status(200).json({
                     title: "Report Confirmed!",
-                    message: "Thanks for confirming! This pothole has already been reported. We've added your confirmation to the existing report.",
-                    annotatedImage: await annotateImage(image, roboflowResult.predictions)
+                    message: "Thanks for confirming! This pothole has already been reported. We've added your confirmation and sent an updated report.",
+                    annotatedImage: annotatedImage
                 });
             }
         }
 
-        const [assessment, weather, annotatedImage] = await Promise.all([
+        const [assessment, weather] = await Promise.all([
             getAIAssessment(image),
-            getWeather(location.latitude, location.longitude),
-            annotateImage(image, roboflowResult.predictions)
+            getWeather(location.latitude, location.longitude)
         ]);
 
         const newReport = {
             address: location.address,
             latitude: location.latitude,
             longitude: location.longitude,
-            // FIX: Use the correct function name 'geohashForLocation'
             geohash: location.latitude ? geohashForLocation([location.latitude, location.longitude]) : null,
             imageUrl: `data:image/jpeg;base64,${annotatedImage}`,
             status: 'Submitted',
@@ -101,6 +108,7 @@ export default async function handler(request, response) {
             potholeType: assessment.potholeType
         };
         await db.collection('reports').add(newReport);
+        await sendEmailReport(newReport, annotatedImage);
 
         return response.status(200).json({
             title: "Report Submitted!",
@@ -116,6 +124,48 @@ export default async function handler(request, response) {
 }
 
 // --- HELPER FUNCTIONS ---
+async function sendEmailReport(reportDetails, annotatedImageBase64) {
+    const { address, severity, estimatedCost, potholeType, confirmations } = reportDetails;
+    const isUpdate = confirmations > 1;
+
+    const subject = isUpdate 
+        ? `Pothole Report Confirmed: ${address || 'Location'}` 
+        : `New Pothole Report: ${address || 'Location'}`;
+
+    const htmlBody = `
+        <h1>${isUpdate ? 'Pothole Confirmation Update' : 'New Pothole Report'}</h1>
+        <p>A pothole has been reported at or near: <strong>${address || 'Address not available'}</strong></p>
+        <h2>AI Analysis:</h2>
+        <ul>
+            <li><strong>Severity:</strong> ${severity}/10</li>
+            <li><strong>Type:</strong> ${potholeType}</li>
+            <li><strong>Estimated Cost:</strong> ${estimatedCost}</li>
+            <li><strong>Confirmations:</strong> ${confirmations}</li>
+        </ul>
+        <p>Please see the attached image for visual confirmation.</p>
+    `;
+
+    try {
+        await resend.emails.send({
+            from: 'onboarding@resend.dev',
+            to: 'pranavkh2411@gmail.com',
+            subject: subject,
+            html: htmlBody,
+            attachments: [
+                {
+                    filename: 'pothole_image.jpg',
+                    content: annotatedImageBase64,
+                    encoding: 'base64',
+                },
+            ],
+        });
+        console.log('Email sent successfully for report at:', address);
+    } catch (error) {
+        console.error('Failed to send email via Resend:', error);
+    }
+}
+
+
 async function detectPothole(base64Image) {
     const response = await axios({
         method: "POST",
@@ -128,12 +178,10 @@ async function detectPothole(base64Image) {
 
 async function findDuplicateReport(lat, lon) {
     const radiusInM = DUPLICATE_CHECK_RADIUS_METERS;
-    // FIX: Use the correct function name 'geohashQueryBounds'
     const bounds = geohashQueryBounds([lat, lon], radiusInM);
 
     const promises = bounds.map(b => {
         const q = db.collection('reports')
-            .where('status', '!=', 'Repaired')
             .orderBy('geohash')
             .startAt(b[0])
             .endAt(b[1]);
@@ -148,8 +196,10 @@ async function findDuplicateReport(lat, lon) {
         });
     });
 
+    const unrepairedDocs = matchingDocs.filter(doc => doc.status !== 'Repaired');
+
     const center = { lat, lon };
-    for (const doc of matchingDocs) {
+    for (const doc of unrepairedDocs) {
         const distanceInKm = haversineDistance(center, { lat: doc.latitude, lon: doc.longitude });
         if (distanceInKm * 1000 <= radiusInM) {
             return doc;
@@ -186,7 +236,36 @@ async function getWeather(lat, lon) {
 }
 
 async function annotateImage(base64Image, predictions) {
-    return base64Image;
+    try {
+        const image = await loadImage(`data:image/jpeg;base64,${base64Image}`);
+        const canvas = createCanvas(image.width, image.height);
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(image, 0, 0);
+
+        // Style for the bounding box
+        ctx.strokeStyle = '#00FF00'; // Green color
+        ctx.lineWidth = 4;
+        ctx.font = '20px Arial';
+        ctx.fillStyle = '#00FF00';
+
+        predictions.forEach(p => {
+            const x = p.x - p.width / 2;
+            const y = p.y - p.height / 2;
+            
+            ctx.strokeRect(x, y, p.width, p.height);
+            
+            const label = `${p.class} (${(p.confidence * 100).toFixed(1)}%)`;
+            // Position the label above the box, or inside if it's at the top edge
+            const textY = y > 20 ? y - 5 : y + 20;
+            ctx.fillText(label, x, textY);
+        });
+
+        // Return the new image as a base64 string, without the data URI prefix
+        return canvas.toDataURL('image/jpeg').split(',')[1];
+    } catch (error) {
+        console.error('Failed to annotate image:', error);
+        return base64Image; // Return original image if annotation fails
+    }
 }
 
 function haversineDistance(coords1, coords2) {
