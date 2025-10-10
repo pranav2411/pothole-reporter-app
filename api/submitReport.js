@@ -76,7 +76,8 @@ export default async function handler(request, response) {
                 });
                 
                 const updatedReportDetails = { ...duplicateReport, confirmations: duplicateReport.confirmations + 1 };
-                await sendEmailReport(updatedReportDetails, annotatedImage);
+                // Pass the original image to the email function
+                await sendEmailReport(updatedReportDetails, annotatedImage, image);
 
                 return response.status(200).json({
                     title: "Report Confirmed!",
@@ -107,7 +108,8 @@ export default async function handler(request, response) {
             potholeType: assessment.potholeType
         };
         await db.collection('reports').add(newReport);
-        await sendEmailReport(newReport, annotatedImage);
+        // Pass the original image to the email function
+        await sendEmailReport(newReport, annotatedImage, image);
 
         return response.status(200).json({
             title: "Report Submitted!",
@@ -123,7 +125,7 @@ export default async function handler(request, response) {
 }
 
 // --- HELPER FUNCTIONS ---
-async function sendEmailReport(reportDetails, annotatedImageBase64) {
+async function sendEmailReport(reportDetails, annotatedImageBase64, originalImageBase64) {
     const { address, severity, estimatedCost, potholeType, confirmations, latitude, longitude } = reportDetails;
     const isUpdate = confirmations > 1;
     const googleMapsLink = (latitude && longitude) ? `https://www.google.com/maps?q=${latitude},${longitude}` : null;
@@ -160,7 +162,7 @@ async function sendEmailReport(reportDetails, annotatedImageBase64) {
                 <li><strong>Total Confirmations:</strong> ${confirmations}</li>
             </ul>
             ${aiAnalysisHtml}
-            <p>The annotated image showing the detected pothole is attached to this email for visual confirmation and analysis.</p>
+            <p>The original uploaded image and an AI-annotated version are attached to this email for visual confirmation and analysis.</p>
             <hr>
             <p style="font-size: 0.8em; color: #888;">This is an automated message from the Pothole Reporter App.</p>
         </div>
@@ -175,9 +177,12 @@ async function sendEmailReport(reportDetails, annotatedImageBase64) {
             attachments: [
                 {
                     filename: 'pothole_image_detected.jpg',
-                    // FIX: Convert the base64 string to a Buffer for reliable attachments
                     content: Buffer.from(annotatedImageBase64, 'base64'),
                 },
+                {
+                    filename: 'pothole_image_original.jpg',
+                    content: Buffer.from(originalImageBase64, 'base64'),
+                }
             ],
         });
         console.log('Email sent successfully for report at:', address);
