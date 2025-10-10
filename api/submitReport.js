@@ -131,7 +131,8 @@ async function sendEmailReport(reportDetails, annotatedImageBase64, originalImag
     const googleMapsLink = (latitude && longitude) ? `https://www.google.com/maps?q=${latitude},${longitude}` : null;
 
     let aiAnalysisHtml = '';
-    if (severity && severity !== 'N/A') {
+    // Check for null or undefined severity to determine if AI analysis was successful
+    if (severity != null && potholeType != null && estimatedCost != null) {
         aiAnalysisHtml = `
             <h2>AI-Powered Damage Assessment:</h2>
             <ul>
@@ -235,17 +236,34 @@ async function findDuplicateReport(lat, lon) {
 }
 
 async function getAIAssessment(base64Image) {
-    const prompt = `Analyze this image of a road surface. Provide a JSON response with three keys: "severity" (a number from 1-10, where 10 is most severe), "potholeType" (e.g., "Crack", "Pothole", "Utility Cut", "Rutting"), and "estimatedCost" (a string representing a rough, non-binding cost estimate in USD, like "$50 - $150"). Focus only on the most significant pothole if there are multiple.`;
+    const prompt = `Analyze this image of a road surface. Provide a JSON response with three keys: "severity" (a number from 1-10, where 10 is most severe), "potholeType" (e.g., "Crack", "Pothole", "Utility Cut", "Rutting"), and "estimatedCost" (a string representing a rough, non-binding cost estimate in USD, like "$50 - $150"). Focus only on the most significant pothole if there are multiple. Your response must be only the JSON object, nothing else.`;
     const imagePart = { inlineData: { data: base64Image, mimeType: 'image/jpeg' } };
 
     try {
         const result = await geminiModel.generateContent([prompt, imagePart]);
+        
+        if (!result.response || !result.response.text) {
+             throw new Error('Gemini response was empty or blocked.');
+        }
+
         const text = result.response.text();
-        const jsonString = text.replace('```json', '').replace('```', '').trim();
-        return JSON.parse(jsonString);
+        const jsonMatch = text.match(/{[\s\S]*}/);
+        if (!jsonMatch) {
+            throw new Error('Valid JSON not found in Gemini response.');
+        }
+        
+        const parsedJson = JSON.parse(jsonMatch[0]);
+        
+        return {
+            severity: parsedJson.severity || null,
+            potholeType: parsedJson.potholeType || null,
+            estimatedCost: parsedJson.estimatedCost || null,
+        };
+
     } catch (e) {
         console.error("Gemini AI analysis failed:", e);
-        return { severity: 'N/A', potholeType: 'N/A', estimatedCost: 'N/A' };
+        // Return a clean failure state with nulls
+        return { severity: null, potholeType: null, estimatedCost: null };
     }
 }
 
