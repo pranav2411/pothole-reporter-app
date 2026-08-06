@@ -1,68 +1,63 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Advanced Pothole Reporter</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>GeoPothole AI - Infrastructure Monitor</title>
+    
+    <!-- PWA Meta tags -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#3b82f6">
+    <link rel="apple-touch-icon" href="/icon-192.png">
+    
+    <!-- CDNs -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
         
         body {
-            font-family: 'Plus Jakarta Sans', 'Outfit', sans-serif;
-            background: radial-gradient(circle at 50% 0%, #1c273a 0%, #0d1117 80%);
-            color: #e6edf3;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: #f8fafc;
+            color: #334155;
         }
         
-        .glass-card {
-            background: rgba(22, 27, 34, 0.7);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid rgba(240, 246, 252, 0.1);
-            box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.5);
-            transition: all 0.3s ease;
+        .font-heading {
+            font-family: 'Outfit', sans-serif;
         }
         
         .btn-primary {
-            background: linear-gradient(135deg, #1f6feb 0%, #0972d4 100%);
-            box-shadow: 0 4px 15px rgba(31, 111, 235, 0.35);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            background-color: #2563eb;
+            color: #ffffff;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
         .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 22px rgba(31, 111, 235, 0.5);
-            background: linear-gradient(135deg, #388bfd 0%, #1f6feb 100%);
+            background-color: #1d4ed8;
+            transform: translateY(-1px);
         }
         .btn-primary:active {
             transform: translateY(0);
         }
         
         .btn-secondary {
-            background: rgba(33, 38, 45, 0.7);
-            border: 1px solid rgba(240, 246, 252, 0.1);
+            background-color: #ffffff;
+            border: 1px solid #e2e8f0;
+            color: #475569;
             transition: all 0.2s ease;
         }
         .btn-secondary:hover {
-            background: rgba(48, 54, 61, 0.85);
-            border-color: rgba(240, 246, 252, 0.2);
-            transform: translateY(-1px);
+            background-color: #f1f5f9;
+            border-color: #cbd5e1;
+            color: #334155;
         }
         
-        .glow-title {
-            background: linear-gradient(135deg, #58a6ff 0%, #1f6feb 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            font-family: 'Outfit', sans-serif;
-            letter-spacing: -0.03em;
-        }
-
+        /* Laser scanning effect for AI diagnostics */
         .scanning-loader {
             position: relative;
             overflow: hidden;
+            background-color: #0f172a;
         }
         .scanning-loader::after {
             content: '';
@@ -70,9 +65,9 @@
             top: 0;
             left: 0;
             width: 100%;
-            height: 4px;
-            background: linear-gradient(to right, transparent, #58a6ff, transparent);
-            animation: scanning 2.5s linear infinite;
+            height: 3px;
+            background: linear-gradient(to right, transparent, #3b82f6, transparent);
+            animation: scanning 2s linear infinite;
         }
         @keyframes scanning {
             0% { top: 0%; }
@@ -80,155 +75,191 @@
             100% { top: 0%; }
         }
 
-        #map, #confirm-map {
-            height: 400px;
-            border-radius: 12px;
-            border: 1px solid rgba(240, 246, 252, 0.1);
-            box-shadow: inset 0 0 15px rgba(0,0,0,0.6);
-        }
-        
+        /* Light-theme styled Leaflet Popups */
         .leaflet-popup-content-wrapper {
-            background: rgba(22, 27, 34, 0.95) !important;
-            backdrop-filter: blur(12px);
-            color: #e6edf3 !important;
-            border: 1px solid rgba(240, 246, 252, 0.15) !important;
+            background: #ffffff !important;
+            color: #334155 !important;
+            border: 1px solid #e2e8f0 !important;
             border-radius: 12px !important;
-            box-shadow: 0 8px 30px rgba(0,0,0,0.5) !important;
+            box-shadow: 0 4px 20px rgba(15, 23, 42, 0.08) !important;
+            padding: 4px;
         }
         .leaflet-popup-tip {
-            background: rgba(22, 27, 34, 0.95) !important;
-            border-left: 1px solid rgba(240, 246, 252, 0.15) !important;
-            border-bottom: 1px solid rgba(240, 246, 252, 0.15) !important;
+            background: #ffffff !important;
+            border: 1px solid #e2e8f0 !important;
         }
-        
         .leaflet-popup-image {
             width: 100%;
-            height: 120px;
+            height: 100px;
             object-fit: cover;
-            border-radius: 8px;
-            margin-top: 8px;
-            border: 1px solid rgba(240, 246, 252, 0.1);
+            border-radius: 6px;
+            margin-top: 6px;
+            border: 1px solid #e2e8f0;
         }
         
         .legend {
-            background: rgba(22, 27, 34, 0.9) !important;
-            backdrop-filter: blur(10px);
-            padding: 12px;
+            background: rgba(255, 255, 255, 0.95) !important;
+            backdrop-filter: blur(8px);
+            padding: 10px 14px;
             border-radius: 8px;
-            border: 1px solid rgba(240, 246, 252, 0.1);
-            color: #e6edf3;
-            line-height: 1.6;
-            font-size: 12px;
+            border: 1px solid #e2e8f0;
+            color: #475569;
+            line-height: 1.5;
+            font-size: 11px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
         }
         .legend h4 {
-            margin: 0 0 6px 0;
+            margin: 0 0 4px 0;
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.05em;
-            color: #8b949e;
+            color: #64748b;
         }
         .legend i {
-            width: 12px;
-            height: 12px;
+            width: 10px;
+            height: 10px;
             float: left;
-            margin-top: 4px;
+            margin-top: 3px;
             margin-right: 8px;
             border-radius: 50%;
-            box-shadow: 0 0 8px currentColor;
+        }
+
+        /* Map styling */
+        #map {
+            z-index: 1;
+        }
+        
+        /* Custom markers pulse animation */
+        .pulse-marker {
+            animation: pulse-ring 1.5s cubic-bezier(0.215, 0.610, 0.355, 1) infinite;
+        }
+        @keyframes pulse-ring {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.5); }
+            70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(37, 99, 235, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); }
         }
     </style>
 </head>
+<body>
 
-<body class="min-h-screen flex items-center justify-center p-4">
-
-    <div class="w-full max-w-lg mx-auto">
-        <div id="main-card" class="glass-card rounded-2xl p-8">
-            <div class="text-center mb-8">
-                <h1 class="text-4xl font-extrabold text-gray-100 glow-title">GeoPothole AI</h1>
-                <p class="text-gray-400 mt-3 text-sm">Real-time road infrastructure monitor leveraging Computer Vision, geospatial duplicate checking, and LLM validation.</p>
-            </div>
-
-            <div id="location-section" class="mb-6 p-4 rounded-xl bg-white/5 border border-white/5">
-                <div class="flex items-center justify-center space-x-2 text-cyan-400">
-                    <svg id="location-icon" class="w-5 h-5 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-                    <span id="location-status" class="font-semibold text-gray-200">Retrieving Location...</span>
-                </div>
-                <p id="coords-display" class="text-xs text-center text-gray-500 mt-2 font-mono"></p>
-                <div class="text-center mt-3">
-                    <button id="manual-location-btn" class="text-xs font-semibold text-cyan-400 hover:text-cyan-300 hidden tracking-wider uppercase">Or Enter Address Manually</button>
-                </div>
-                <div id="manual-location-form" class="hidden mt-4 space-y-3">
-                    <input type="text" id="manual-address-input" class="w-full bg-gray-900/60 border border-gray-700/80 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/50 text-sm" placeholder="Enter street address">
-                    <button id="submit-manual-location" class="w-full btn-secondary text-white font-semibold py-2 px-4 rounded-lg text-sm">Set Custom Address</button>
-                </div>
-            </div>
-
-            <div id="upload-section">
-                <input type="file" id="image-upload" class="hidden" accept="image/jpeg, image/png">
-                <button id="upload-button" class="w-full btn-primary text-white font-bold py-3.5 px-4 rounded-xl flex items-center justify-center space-x-2 text-base">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
-                    <span>Analyze & Report Pothole</span>
-                </button>
-            </div>
-            
-            <div class="text-center mt-6">
-                <button id="map-view-btn" class="text-sm font-semibold text-cyan-400 hover:text-cyan-300 flex items-center justify-center mx-auto space-x-1">
-                    <span>Explore Incident Map</span>
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
-                </button>
-            </div>
-        </div>
-
-        <!-- Confirm Location Card -->
-        <div id="confirm-location-card" class="glass-card rounded-2xl p-6 hidden mt-4">
-            <div class="text-center">
-                <h2 class="text-xl font-bold text-gray-100 mb-2">Pinpoint Coordinates</h2>
-                <p class="text-gray-400 text-sm mb-4">Drag the marker to the exact coordinates of the pothole.</p>
-                <div id="confirm-map"></div>
-                <p id="confirm-address" class="text-xs text-gray-300 mt-4 p-3 bg-white/5 border border-white/5 rounded-lg font-mono text-center"></p>
-                <button id="confirm-submit-btn" class="w-full btn-primary text-white font-bold py-3 px-4 rounded-xl mt-4 text-sm">Verify & Run AI Diagnostics</button>
-                <button id="cancel-submit-btn" class="w-full btn-secondary text-white font-semibold py-2 px-4 rounded-lg mt-2 text-xs">Cancel</button>
-            </div>
-        </div>
-
-        <!-- AI Diagnostics Result Card -->
-        <div id="result-card" class="glass-card rounded-2xl p-8 hidden mt-4">
-             <div class="text-center">
-                <h2 id="result-title" class="text-2xl font-bold text-gray-100 glow-title"></h2>
-                
-                <!-- Scanning Loader overlay replacement -->
-                <div id="loader" class="hidden my-6">
-                    <div class="relative w-48 h-48 mx-auto rounded-xl overflow-hidden border border-cyan-500/30 bg-gray-950/80 scanning-loader">
-                        <div class="absolute inset-0 flex items-center justify-center">
-                            <span class="text-xs font-semibold text-cyan-400 tracking-wider animate-pulse font-mono">AI DIAGNOSTICS RUNNING...</span>
-                        </div>
-                    </div>
-                </div>
-
-                <p id="result-message" class="text-gray-300 mt-3 text-sm leading-relaxed"></p>
-                <img id="result-image" class="mt-5 rounded-xl border border-gray-700/60 max-h-80 w-auto mx-auto shadow-2xl" alt="Pothole detection result">
-                
-                <div id="assessment-details" class="hidden mt-5 text-left text-sm space-y-2.5 p-4 rounded-xl bg-white/5 border border-white/5"></div>
-                <button id="report-another-btn" class="w-full btn-secondary text-white font-semibold py-2.5 px-4 rounded-xl mt-6 text-sm">Report Another Hazard</button>
-            </div>
+    <!-- Split Screen Parent -->
+    <div class="h-screen w-screen grid grid-cols-1 lg:grid-cols-12 overflow-hidden bg-slate-50">
+        
+        <!-- MAP SECTION (Left side: 7 columns on desktop, top 40% on mobile) -->
+        <div class="h-[40vh] lg:h-full lg:col-span-7 relative border-b lg:border-b-0 lg:border-r border-slate-200 shadow-sm">
+            <div id="map" class="h-full w-full"></div>
         </div>
         
-        <!-- Live Incident Map Card -->
-        <div id="map-card" class="glass-card rounded-2xl p-6 hidden mt-4">
-             <div class="text-center">
-                <h2 class="text-xl font-bold text-gray-100 mb-4">Infrastructure Incident Map</h2>
-                <div id="map"></div>
-                <button id="back-to-report-btn" class="w-full btn-secondary text-white font-semibold py-2.5 px-4 rounded-xl mt-6 text-sm">Return to Submission Portal</button>
+        <!-- CONTROL PANEL SECTION (Right side: 5 columns on desktop, bottom 60% on mobile) -->
+        <div class="h-[60vh] lg:h-full lg:col-span-5 flex flex-col bg-white overflow-y-auto">
+            <div class="p-6 sm:p-10 lg:p-12 flex flex-col justify-between min-h-full">
+                
+                <!-- Brand Header -->
+                <header class="mb-8">
+                    <div class="flex items-center gap-2.5 mb-1.5">
+                        <div class="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center text-white font-extrabold text-base shadow-md shadow-blue-500/20 font-heading">GP</div>
+                        <h1 class="text-xl font-extrabold text-slate-800 tracking-tight font-heading">GeoPothole AI</h1>
+                    </div>
+                    <p class="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Progressive Infrastructure Monitor</p>
+                </header>
+
+                <!-- Dynamic View Panel -->
+                <main class="flex-grow flex flex-col justify-center">
+                    
+                    <!-- STATE 1: Report Submission Form -->
+                    <div id="view-report" class="space-y-6">
+                        <div class="space-y-2">
+                            <h2 class="text-lg font-bold text-slate-800 font-heading">Report Street Defects</h2>
+                            <p class="text-sm text-slate-500 leading-relaxed">Help keep roads safe. Upload a picture of a pothole, verify its coordinate marker, and our AI will register it with city maintenance.</p>
+                        </div>
+
+                        <!-- Device Location Box -->
+                        <div id="location-section" class="p-4 rounded-xl bg-slate-50 border border-slate-200/60 space-y-3">
+                            <div class="flex items-center gap-2.5 text-slate-700">
+                                <svg id="location-icon" class="w-4 h-4 text-blue-600 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                                <span id="location-status" class="text-xs font-bold text-slate-700">Checking location status...</span>
+                            </div>
+                            <p id="coords-display" class="text-[11px] text-slate-400 font-mono pl-6 leading-none"></p>
+                            
+                            <div class="pl-6">
+                                <button id="manual-location-btn" class="text-[11px] font-bold text-blue-600 hover:text-blue-700 uppercase tracking-wide hidden">Manual Coordinates</button>
+                            </div>
+                            
+                            <div id="manual-location-form" class="hidden pl-6 pt-2 space-y-2.5">
+                                <input type="text" id="manual-address-input" class="w-full text-xs bg-white border border-slate-200 rounded-lg px-3 py-2 text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500/50" placeholder="Enter custom address/city">
+                                <button id="submit-manual-location" class="w-full btn-secondary py-1 px-3 rounded-lg text-[10px] font-bold">Apply Manual Address</button>
+                            </div>
+                        </div>
+
+                        <!-- Main Image Trigger -->
+                        <div>
+                            <input type="file" id="image-upload" class="hidden" accept="image/jpeg, image/png">
+                            <button id="upload-button" class="w-full btn-primary text-white font-bold py-3.5 px-5 rounded-xl flex items-center justify-center space-x-2 text-sm shadow-md shadow-blue-500/10">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                                <span>Upload Pothole Image</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- STATE 2: Verify Pin Location -->
+                    <div id="view-confirm" class="hidden space-y-6">
+                        <div class="space-y-2">
+                            <h2 class="text-lg font-bold text-slate-800 font-heading">Confirm Hazard Coordinates</h2>
+                            <p class="text-sm text-slate-500 leading-relaxed">Drag the blue pin on the map to pinpoint the exact location of the pothole, then confirm.</p>
+                        </div>
+
+                        <div class="p-4 rounded-xl bg-slate-50 border border-slate-200/60">
+                            <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1 leading-none">Resolved Location</p>
+                            <p id="confirm-address" class="text-xs font-semibold text-slate-700 leading-relaxed"></p>
+                        </div>
+
+                        <div class="flex flex-col gap-2">
+                            <button id="confirm-submit-btn" class="w-full btn-primary font-bold py-3 px-4 rounded-xl text-sm shadow-md shadow-blue-500/10">Confirm Location & Send</button>
+                            <button id="cancel-submit-btn" class="w-full btn-secondary font-semibold py-2 px-4 rounded-xl text-xs">Cancel & Return</button>
+                        </div>
+                    </div>
+
+                    <!-- STATE 3: Diagnostics Result -->
+                    <div id="view-result" class="hidden space-y-5">
+                        <h2 id="result-title" class="text-lg font-extrabold text-slate-800 font-heading"></h2>
+                        
+                        <!-- Laser Scanner Loader -->
+                        <div id="loader" class="hidden py-4">
+                            <div class="relative w-36 h-36 mx-auto rounded-xl overflow-hidden border border-blue-200/30 bg-slate-900 scanning-loader shadow-inner">
+                                <div class="absolute inset-0 flex items-center justify-center">
+                                    <span class="text-[9px] font-bold text-blue-400 tracking-widest animate-pulse font-mono uppercase">AI Scanning...</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <p id="result-message" class="text-sm text-slate-600 leading-relaxed"></p>
+                        <img id="result-image" class="rounded-xl border border-slate-100 max-h-64 w-auto mx-auto shadow-md" alt="AI Scan Result">
+                        
+                        <div id="assessment-details" class="hidden p-4 rounded-xl bg-slate-50 border border-slate-200/60 text-xs space-y-2"></div>
+                        
+                        <button id="report-another-btn" class="w-full btn-secondary font-bold py-2.5 px-4 rounded-xl text-xs">Submit New Report</button>
+                    </div>
+                </main>
+
+                <!-- Brand Footer (Always visible) -->
+                <footer class="mt-8 pt-4 border-t border-slate-100 flex justify-between items-center text-[10px] text-slate-400 font-semibold">
+                    <span class="flex items-center gap-1">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                        <span>PWA Standalone</span>
+                    </span>
+                    <span>Secured by Firebase</span>
+                </footer>
+
             </div>
         </div>
     </div>
 
+    <!-- Script Operations -->
     <script>
-        // --- DOM ELEMENTS ---
-        const mainCard = document.getElementById('main-card');
-        const confirmLocationCard = document.getElementById('confirm-location-card');
-        const resultCard = document.getElementById('result-card');
-        const mapCard = document.getElementById('map-card');
+        // --- DOM Elements ---
+        const viewReport = document.getElementById('view-report');
+        const viewConfirm = document.getElementById('view-confirm');
+        const viewResult = document.getElementById('view-result');
         const uploadButton = document.getElementById('upload-button');
         const imageUpload = document.getElementById('image-upload');
         const locationStatus = document.getElementById('location-status');
@@ -238,7 +269,6 @@
         const manualLocationForm = document.getElementById('manual-location-form');
         const manualAddressInput = document.getElementById('manual-address-input');
         const submitManualLocation = document.getElementById('submit-manual-location');
-        const confirmMapEl = document.getElementById('confirm-map');
         const confirmAddress = document.getElementById('confirm-address');
         const confirmSubmitBtn = document.getElementById('confirm-submit-btn');
         const cancelSubmitBtn = document.getElementById('cancel-submit-btn');
@@ -248,128 +278,235 @@
         const resultImage = document.getElementById('result-image');
         const assessmentDetails = document.getElementById('assessment-details');
         const reportAnotherBtn = document.getElementById('report-another-btn');
-        const mapViewBtn = document.getElementById('map-view-btn');
-        const backToReportBtn = document.getElementById('back-to-report-btn');
 
-        // --- STATE ---
+        // --- State Variables ---
         let currentLocation = null;
-        let publicMap = null;
-        let confirmationMap = null;
+        let appMap = null;
         let uploadedImageBase64 = null;
+        let dragMarker = null;
 
-        const createCircleMarker = (color) => L.divIcon({ className: 'custom-div-icon', html: `<div style="background-color:${color};width:20px;height:20px;border-radius:50%;border:2px solid white;"></div>`, iconSize: [24, 24], iconAnchor: [12, 12] });
-        const icons = { 'Submitted': createCircleMarker('#f85149'), 'In Review': createCircleMarker('#e3b341'), 'Repaired': createCircleMarker('#2ea043') };
-        const defaultIcon = createCircleMarker('#808080');
+        // Custom Marker Styles
+        const createCircleMarker = (color) => L.divIcon({ 
+            className: 'custom-div-icon', 
+            html: `<div style="background-color:${color};width:16px;height:16px;border-radius:50%;border:2px solid white;box-shadow: 0 2px 8px rgba(0,0,0,0.15)"></div>`, 
+            iconSize: [20, 20], 
+            iconAnchor: [10, 10] 
+        });
+        
+        const icons = { 
+            'Submitted': createCircleMarker('#ef4444'), 
+            'In Review': createCircleMarker('#f59e0b'), 
+            'Repaired': createCircleMarker('#10b981') 
+        };
+        const defaultIcon = createCircleMarker('#64748b');
 
-        // --- FUNCTIONS ---
-        function getLocation() {
+        // Draggable pin marker for geolocation validation
+        const pinIcon = L.divIcon({
+            className: 'custom-div-icon pulse-marker',
+            html: `<div style="background-color:#2563eb;width:20px;height:20px;border-radius:50%;border:2.5px solid white;box-shadow: 0 4px 10px rgba(37,99,235,0.3)"></div>`,
+            iconSize: [26, 26],
+            iconAnchor: [13, 13]
+        });
+
+        // --- Functions ---
+        
+        // Initialize unified Leaflet map
+        function initMap() {
+            appMap = L.map('map', { zoomControl: false }).setView([26.9124, 75.7873], 12);
+            
+            // Add zoom control at bottom-right
+            L.control.zoom({ position: 'bottomright' }).addTo(appMap);
+            
+            // Light-themed minimal map layer
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+                maxZoom: 20,
+                attribution: '© OpenStreetMap & CARTO'
+            }).addTo(appMap);
+
+            addLegend();
+            loadMapMarkers();
+        }
+
+        // Retrieve existing incidents
+        async function loadMapMarkers() {
+            try {
+                const response = await fetch('/api/getReports');
+                if (!response.ok) throw new Error('Failed to fetch reports');
+                const reports = await response.json();
+                
+                // Clear existing dynamic markers, keeping the draggable marker if active
+                appMap.eachLayer(layer => { 
+                    if (layer instanceof L.Marker && layer !== dragMarker) {
+                        appMap.removeLayer(layer); 
+                    }
+                });
+
+                reports.forEach(report => {
+                    if (report.latitude && report.longitude) {
+                        const markerIcon = icons[report.status] || defaultIcon;
+                        const marker = L.marker([report.latitude, report.longitude], { icon: markerIcon }).addTo(appMap);
+                        const imgTag = report.imageUrl ? `<img src="${report.imageUrl}" class="leaflet-popup-image" alt="Incident view">` : '';
+                        marker.bindPopup(`
+                            <div class="p-1 font-sans text-xs">
+                                <b class="text-slate-800 text-xs font-bold block mb-1">${report.address || 'Reported Hazard'}</b>
+                                <div class="text-slate-500 mb-2 leading-relaxed">
+                                    Status: <span class="font-bold text-blue-600">${report.status}</span><br>
+                                    Severity: <span class="font-bold text-amber-500">${report.severity || 'N/A'}/10</span>
+                                </div>
+                                ${imgTag}
+                            </div>
+                        `);
+                    }
+                });
+            } catch (error) {
+                console.error("Failed to load map markers:", error);
+            }
+        }
+
+        function addLegend() {
+            const legend = L.control({ position: 'bottomleft' });
+            legend.onAdd = function () {
+                const div = L.DomUtil.create('div', 'info legend');
+                const statuses = ['Submitted', 'In Review', 'Repaired'];
+                const colors = ['#ef4444', '#f59e0b', '#10b981'];
+                div.innerHTML += '<h4>Incidents</h4>';
+                for (let i = 0; i < statuses.length; i++) {
+                    div.innerHTML += '<i style="background:' + colors[i] + '"></i> ' + statuses[i] + '<br>';
+                }
+                return div;
+            };
+            legend.addTo(appMap);
+        }
+
+        // Get coordinates from device GPS
+        function getDeviceLocation() {
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(
                     async (position) => {
                         const { latitude, longitude, accuracy } = position.coords;
-                        const address = await getAddressFromCoords(latitude, longitude);
+                        const address = await getReverseGeocode(latitude, longitude);
                         currentLocation = { latitude, longitude, accuracy, address };
-                        setLocationStatus(address, latitude, longitude, accuracy);
-                    }, showError, { enableHighAccuracy: true }
+                        updateLocationDisplay(address, latitude, longitude, accuracy);
+                    }, 
+                    handleLocationError, 
+                    { enableHighAccuracy: true }
                 );
             } else {
-                setLocationStatus("Geolocation is not supported.", null, null, null, true);
+                updateLocationDisplay("GPS geolocation not supported.", null, null, null, true);
             }
         }
 
-        async function getAddressFromCoords(lat, lon) {
+        function handleLocationError(error) {
+            let message = 'Location access denied.';
+            if (error.code === error.POSITION_UNAVAILABLE) message = "Location unavailable.";
+            else if (error.code === error.TIMEOUT) message = "Location request timed out.";
+            updateLocationDisplay(message, null, null, null, true);
+        }
+
+        async function getReverseGeocode(lat, lon) {
             try {
                 const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
                 const data = await response.json();
-                return data.display_name || 'Address not found.';
-            } catch (error) { console.error('Error fetching address:', error); return 'Could not fetch address.'; }
+                return data.display_name || 'Geographical coordinate matched';
+            } catch (error) {
+                console.error('Reverse geocode failure:', error);
+                return 'Resolved Coordinates';
+            }
         }
-        
-        function setLocationStatus(address, lat, lon, accuracy, isManual = false) {
-            locationStatus.textContent = address || 'Address not found.';
-            coordsDisplay.textContent = isManual ? 'Please enter address manually.' : (lat && lon && accuracy) ? `Lat: ${lat.toFixed(5)}, Lon: ${lon.toFixed(5)} (Accuracy: ${accuracy.toFixed(1)}m)` : '';
+
+        function updateLocationDisplay(address, lat, lon, accuracy, isManual = false) {
+            locationStatus.textContent = address || 'Location determined';
+            coordsDisplay.textContent = isManual ? 'Address coordinates set manually.' : (lat && lon) ? `${lat.toFixed(5)}, ${lon.toFixed(5)} (Accuracy: ${accuracy ? accuracy.toFixed(1) : 0}m)` : '';
             locationIcon.classList.remove('animate-pulse');
             manualLocationBtn.classList.remove('hidden');
-        }
-
-        function showError(error) {
-            let message = '';
-            switch (error.code) {
-                case error.PERMISSION_DENIED: message = "Location access denied."; break;
-                case error.POSITION_UNAVAILABLE: message = "Location information is unavailable."; break;
-                case error.TIMEOUT: message = "Location request timed out."; break;
-                default: message = "An unknown error occurred."; break;
-            }
-            setLocationStatus(message, null, null, null, true);
-        }
-
-        function handleManualLocationToggle() { manualLocationForm.classList.toggle('hidden'); }
-
-        function handleManualLocationSubmit() {
-            const manualAddress = manualAddressInput.value.trim();
-            if (manualAddress) {
-                currentLocation = { address: manualAddress, latitude: null, longitude: null, accuracy: null };
-                setLocationStatus(manualAddress, null, null, null, true);
-                manualLocationForm.classList.add('hidden');
+            
+            if (lat && lon && appMap) {
+                appMap.setView([lat, lon], 16);
             }
         }
-        
-        function toBase64(file) {
+
+        function toggleManualForm() {
+            manualLocationForm.classList.toggle('hidden');
+        }
+
+        async function handleManualSubmit() {
+            const query = manualAddressInput.value.trim();
+            if (query) {
+                locationStatus.textContent = "Geocoding query...";
+                try {
+                    const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`);
+                    const data = await response.json();
+                    if (data && data.length > 0) {
+                        const { lat, lon, display_name } = data[0];
+                        const latitude = parseFloat(lat);
+                        const longitude = parseFloat(lon);
+                        currentLocation = { latitude, longitude, accuracy: 10, address: display_name };
+                        updateLocationDisplay(display_name, latitude, longitude, 10);
+                        manualLocationForm.classList.add('hidden');
+                    } else {
+                        locationStatus.textContent = "Address query resolved no matches.";
+                    }
+                } catch (e) {
+                    locationStatus.textContent = "Geocoding service unavailable.";
+                }
+            }
+        }
+
+        // Convert file inputs to base64
+        function fileToBase64(file) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
                 reader.readAsDataURL(file);
                 reader.onload = () => resolve(reader.result.split(',')[1]);
-                reader.onerror = error => reject(error);
+                reader.onerror = err => reject(err);
             });
         }
 
+        // Handles image selection and coordinates marker overlay
         async function handleImageSelect(event) {
             const file = event.target.files[0];
             if (!file) return;
 
-            if (!currentLocation || (!currentLocation.address && !currentLocation.latitude)) {
-                alert('Please determine your location before uploading an image.');
+            if (!currentLocation || !currentLocation.latitude) {
+                alert('Please resolve your location coordinates before uploading imagery.');
                 return;
             }
 
-            uploadedImageBase64 = await toBase64(file);
-            mainCard.classList.add('hidden');
-            confirmLocationCard.classList.remove('hidden');
-            initializeConfirmationMap();
-        }
-
-        function initializeConfirmationMap() {
-            if (!confirmationMap) {
-                confirmationMap = L.map('confirm-map');
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(confirmationMap);
+            uploadedImageBase64 = await fileToBase64(file);
+            
+            // Switch views
+            viewReport.classList.add('hidden');
+            viewConfirm.classList.remove('hidden');
+            
+            // Render interactive draggable pin marker
+            const center = [currentLocation.latitude, currentLocation.longitude];
+            confirmAddress.textContent = currentLocation.address || 'Drag pin to target hazard location...';
+            
+            if (dragMarker) {
+                appMap.removeLayer(dragMarker);
             }
 
-            const center = [currentLocation.latitude || 26.9124, currentLocation.longitude || 75.7873];
-            confirmationMap.setView(center, 17);
-            
-            const marker = L.marker(center, { draggable: true }).addTo(confirmationMap);
-            confirmAddress.textContent = currentLocation.address || 'Drag pin to update address...';
+            dragMarker = L.marker(center, { icon: pinIcon, draggable: true }).addTo(appMap);
+            appMap.setView(center, 17);
 
-            marker.on('dragend', async function(event) {
-                const position = marker.getLatLng();
-                const newAddress = await getAddressFromCoords(position.lat, position.lng);
-                currentLocation = { ...currentLocation, latitude: position.lat, longitude: position.lng, address: newAddress };
-                confirmAddress.textContent = newAddress;
+            dragMarker.on('dragend', async function() {
+                const pos = dragMarker.getLatLng();
+                confirmAddress.textContent = "Resolving street address...";
+                const address = await getReverseGeocode(pos.lat, pos.lng);
+                currentLocation = { ...currentLocation, latitude: pos.lat, longitude: pos.lng, address };
+                confirmAddress.textContent = address;
             });
-
-             // Invalidate map size to ensure it renders correctly after being un-hidden
-            setTimeout(() => confirmationMap.invalidateSize(), 0);
         }
 
+        // Submit the final payload
         async function submitFinalReport() {
-            confirmLocationCard.classList.add('hidden');
-            resultCard.classList.remove('hidden');
+            viewConfirm.classList.add('hidden');
+            viewResult.classList.remove('hidden');
             loader.classList.remove('hidden');
-            resultTitle.textContent = 'Analyzing Report...';
-            resultMessage.textContent = 'Our AI is inspecting the image and preparing a detailed report.';
+            resultTitle.textContent = 'Analyzing Report';
+            resultMessage.textContent = 'Our AI models are verifying image credentials and analyzing hazard dimensions...';
             resultImage.classList.add('hidden');
             assessmentDetails.classList.add('hidden');
-            assessmentDetails.innerHTML = '';
             
             try {
                 const response = await fetch('/api/submitReport', {
@@ -379,7 +516,7 @@
                 });
                 const result = await response.json();
                 
-                if (!response.ok) throw new Error(result.message || 'An unknown error occurred.');
+                if (!response.ok) throw new Error(result.message || 'Error executing endpoint.');
                 
                 resultTitle.textContent = result.title;
                 resultMessage.textContent = result.message;
@@ -389,120 +526,73 @@
                     resultImage.classList.remove('hidden');
                 }
                 
-                if(result.assessment && result.assessment.severity != null) {
-                    assessmentDetails.innerHTML = `<h3 class="font-bold text-gray-200">AI Damage Assessment:</h3><p><span class="font-semibold text-gray-400">Severity:</span> ${result.assessment.severity}/10</p><p><span class="font-semibold text-gray-400">Type:</span> ${result.assessment.potholeType}</p><p><span class="font-semibold text-gray-400">Cost:</span> ${result.assessment.estimatedCost}</p>`;
+                if (result.assessment && result.assessment.severity != null) {
+                    assessmentDetails.innerHTML = `
+                        <h3 class="font-extrabold text-slate-800 uppercase tracking-wider mb-2 text-[10px]">AI Assessment Details</h3>
+                        <p><span class="font-bold text-slate-500">Classification:</span> ${result.assessment.potholeType || 'Road Pothole'}</p>
+                        <p><span class="font-bold text-slate-500">Severity Index:</span> ${result.assessment.severity}/10</p>
+                        <p><span class="font-bold text-slate-500">Remediation Cost:</span> ${result.assessment.estimatedCost || 'N/A'}</p>
+                    `;
                     assessmentDetails.classList.remove('hidden');
                 }
             } catch (error) {
-                resultTitle.textContent = 'Submission Failed';
-                resultMessage.textContent = `An error occurred: ${error.message}`;
-                console.error('Submission error:', error);
+                resultTitle.textContent = 'Diagnostics Failed';
+                resultMessage.textContent = `Server reported error: ${error.message}`;
             } finally {
                 loader.classList.add('hidden');
                 imageUpload.value = '';
                 uploadedImageBase64 = null;
-            }
-        }
-        
-        function cancelSubmission() {
-            confirmLocationCard.classList.add('hidden');
-            mainCard.classList.remove('hidden');
-            imageUpload.value = '';
-            uploadedImageBase64 = null;
-        }
-
-        function resetApp() {
-            mainCard.classList.remove('hidden');
-            resultCard.classList.add('hidden');
-            mapCard.classList.add('hidden');
-            confirmLocationCard.classList.add('hidden');
-        }
-
-        function showMapView() {
-            mainCard.classList.add('hidden');
-            resultCard.classList.add('hidden');
-            mapCard.classList.remove('hidden');
-
-            if (!publicMap) {
-                publicMap = L.map('map').setView([26.9124, 75.7873], 13);
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(publicMap);
-                addLegend();
-            }
-            
-            if (currentLocation && currentLocation.latitude) {
-                publicMap.setView([currentLocation.latitude, currentLocation.longitude], 16);
-            }
-            
-            loadMapMarkers();
-             setTimeout(() => publicMap.invalidateSize(), 0);
-        }
-        
-        async function loadMapMarkers() {
-            try {
-                const response = await fetch('/api/getReports');
-                if (!response.ok) throw new Error('Failed to fetch reports');
-                const reports = await response.json();
-                
-                publicMap.eachLayer(layer => { if (layer instanceof L.Marker) publicMap.removeLayer(layer); });
-
-                reports.forEach(report => {
-                    if (report.latitude && report.longitude) {
-                        const markerIcon = icons[report.status] || defaultIcon;
-                        const marker = L.marker([report.latitude, report.longitude], { icon: markerIcon }).addTo(publicMap);
-                        const imgTag = report.imageUrl ? `<img src="${report.imageUrl}" class="leaflet-popup-image" alt="Pothole image">` : '';
-                        marker.bindPopup(`
-                            <div class="p-1">
-                                <b class="text-sm font-semibold text-gray-100">${report.address || 'Reported Location'}</b>
-                                <div class="mt-2 text-xs text-gray-300 leading-relaxed">
-                                    Status: <span class="font-semibold text-cyan-400">${report.status}</span><br>
-                                    Severity: <span class="font-semibold text-amber-400">${report.severity || 'N/A'}/10</span><br>
-                                    Confirmations: <span class="font-semibold text-gray-400">${report.confirmations} reports</span>
-                                </div>
-                                ${imgTag}
-                            </div>
-                        `);
-                    }
-                });
-            } catch (error) {
-                console.error("Failed to load map markers:", error);
-                alert("Could not load map data.");
-            }
-        }
-
-        function addLegend() {
-            const legend = L.control({position: 'bottomright'});
-            legend.onAdd = function (map) {
-                const div = L.DomUtil.create('div', 'info legend');
-                const statuses = ['Submitted', 'In Review', 'Repaired'];
-                const colors = ['#f85149', '#e3b341', '#2ea043'];
-                div.innerHTML += '<h4>Status</h4>';
-                for (let i = 0; i < statuses.length; i++) {
-                    div.innerHTML += '<i style="background:' + colors[i] + '"></i> ' + statuses[i] + '<br>';
+                if (dragMarker) {
+                    appMap.removeLayer(dragMarker);
+                    dragMarker = null;
                 }
-                return div;
-            };
-            legend.addTo(publicMap);
-        }
-        
-        function showReportView() {
-            mainCard.classList.remove('hidden');
-            mapCard.classList.add('hidden');
+                loadMapMarkers(); // Refresh markers mapping
+            }
         }
 
-        // --- EVENT LISTENERS ---
-        document.addEventListener('DOMContentLoaded', getLocation);
+        // Return to reporting form state
+        function resetInterface() {
+            viewResult.classList.add('hidden');
+            viewConfirm.classList.add('hidden');
+            viewReport.classList.remove('hidden');
+            if (dragMarker) {
+                appMap.removeLayer(dragMarker);
+                dragMarker = null;
+            }
+            getDeviceLocation();
+        }
+
+        function cancelSubmission() {
+            viewConfirm.classList.add('hidden');
+            viewReport.classList.remove('hidden');
+            if (dragMarker) {
+                appMap.removeLayer(dragMarker);
+                dragMarker = null;
+            }
+        }
+
+        // --- Event Listeners ---
+        document.addEventListener('DOMContentLoaded', () => {
+            initMap();
+            getDeviceLocation();
+        });
+
         uploadButton.addEventListener('click', () => imageUpload.click());
         imageUpload.addEventListener('change', handleImageSelect);
-        manualLocationBtn.addEventListener('click', handleManualLocationToggle);
-        submitManualLocation.addEventListener('click', handleManualLocationSubmit);
+        manualLocationBtn.addEventListener('click', toggleManualForm);
+        submitManualLocation.addEventListener('click', handleManualSubmit);
         confirmSubmitBtn.addEventListener('click', submitFinalReport);
         cancelSubmitBtn.addEventListener('click', cancelSubmission);
-        reportAnotherBtn.addEventListener('click', resetApp);
-        mapViewBtn.addEventListener('click', showMapView);
-        backToReportBtn.addEventListener('click', showReportView);
+        reportAnotherBtn.addEventListener('click', resetInterface);
 
+        // --- PWA Service Worker Registration ---
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(reg => console.log('PWA Service Worker registered successfully:', reg.scope))
+                    .catch(err => console.error('PWA Service Worker registration failed:', err));
+            });
+        }
     </script>
 </body>
-
 </html>
-
