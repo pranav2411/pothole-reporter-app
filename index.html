@@ -344,13 +344,19 @@
                         const marker = L.marker([report.latitude, report.longitude], { icon: markerIcon }).addTo(appMap);
                         const imgTag = report.imageUrl ? `<img src="${report.imageUrl}" class="leaflet-popup-image" alt="Incident view">` : '';
                         marker.bindPopup(`
-                            <div class="p-1 font-sans text-xs">
+                            <div class="p-1 font-sans text-xs w-[220px]">
                                 <b class="text-slate-800 text-xs font-bold block mb-1">${report.address || 'Reported Hazard'}</b>
-                                <div class="text-slate-500 mb-2 leading-relaxed">
+                                <div class="text-slate-500 mb-2 leading-relaxed text-[11px]">
                                     Status: <span class="font-bold text-blue-600">${report.status}</span><br>
-                                    Severity: <span class="font-bold text-amber-500">${report.severity || 'N/A'}/10</span>
+                                    Severity: <span class="font-bold text-amber-500">${report.severity || 'N/A'}/10</span><br>
+                                    Confirmations: <span class="font-bold text-slate-700">${report.confirmations || 0}</span>
+                                    ${report.fixedConfirmations ? `<br>Reported Fixed: <span class="font-bold text-emerald-600">${report.fixedConfirmations}</span>` : ''}
                                 </div>
                                 ${imgTag}
+                                <div class="mt-3 pt-2 border-t border-slate-100 flex gap-1.5 justify-between">
+                                    <button class="btn-verify-exists flex-1 py-1 px-1.5 rounded bg-blue-50 text-blue-600 border border-blue-200 text-[10px] font-bold transition hover:bg-blue-100 text-center" data-id="${report.id}">Exists</button>
+                                    <button class="btn-verify-fixed flex-1 py-1 px-1.5 rounded bg-emerald-50 text-emerald-600 border border-emerald-200 text-[10px] font-bold transition hover:bg-emerald-100 text-center" data-id="${report.id}">Fixed</button>
+                                </div>
                             </div>
                         `);
                     }
@@ -581,6 +587,42 @@
         confirmSubmitBtn.addEventListener('click', submitFinalReport);
         cancelSubmitBtn.addEventListener('click', cancelSubmission);
         reportAnotherBtn.addEventListener('click', resetInterface);
+
+        // Handle Map Popup Verification Votes
+        document.body.addEventListener('click', async (e) => {
+            const existsBtn = e.target.closest('.btn-verify-exists');
+            const fixedBtn = e.target.closest('.btn-verify-fixed');
+            
+            if (!existsBtn && !fixedBtn) return;
+            
+            const btn = existsBtn || fixedBtn;
+            const reportId = btn.dataset.id;
+            const action = existsBtn ? 'confirm' : 'fixed';
+            
+            btn.disabled = true;
+            btn.textContent = '...';
+            
+            try {
+                const response = await fetch('/api/verifyReport', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ reportId, action })
+                });
+                
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.message || 'Verification failed');
+                
+                // Refresh markers & map popup updates
+                appMap.closePopup();
+                loadMapMarkers();
+                
+            } catch (error) {
+                console.error("Verification error:", error);
+                alert(`Error: ${error.message}`);
+                btn.disabled = false;
+                btn.textContent = action === 'confirm' ? 'Exists' : 'Fixed';
+            }
+        });
 
         // --- PWA Service Worker Registration ---
         if ('serviceWorker' in navigator) {
