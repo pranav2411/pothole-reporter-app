@@ -8,59 +8,189 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-        body { font-family: 'Inter', sans-serif; background-color: #0d1117; color: #c9d1d9; }
-        .card { background-color: #161b22; border: 1px solid #30363d; }
-        .table-header { background-color: #21262d; }
-        .table-row:nth-child(even) { background-color: #161b22; }
-        .table-row:nth-child(odd) { background-color: #0d1117; }
-        #map-admin { height: 500px; border-radius: 0.5rem; border: 1px solid #30363d; }
-        .leaflet-popup-content-wrapper, .leaflet-popup-tip { background: #161b22; color: #c9d1d9; border: 1px solid #30363d; }
-        .status-submitted { color: #f85149; }
-        .status-in-review { color: #e3b341; }
-        .status-repaired { color: #2ea043; }
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+        
+        body {
+            font-family: 'Plus Jakarta Sans', 'Outfit', sans-serif;
+            background: radial-gradient(circle at 50% 0%, #1c273a 0%, #0d1117 80%);
+            color: #e6edf3;
+        }
+        
+        .glass-card {
+            background: rgba(22, 27, 34, 0.75);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(240, 246, 252, 0.1);
+            box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.5);
+        }
+        
+        .glow-title {
+            background: linear-gradient(135deg, #58a6ff 0%, #1f6feb 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-family: 'Outfit', sans-serif;
+            letter-spacing: -0.03em;
+        }
+
+        #map-admin {
+            height: 450px;
+            border-radius: 12px;
+            border: 1px solid rgba(240, 246, 252, 0.1);
+            box-shadow: inset 0 0 15px rgba(0,0,0,0.6);
+        }
+        
+        .table-header {
+            background: rgba(33, 38, 45, 0.85);
+            border-bottom: 2px solid rgba(240, 246, 252, 0.1);
+        }
+        
+        .table-row {
+            transition: background-color 0.2s ease;
+        }
+        .table-row:hover {
+            background: rgba(56, 139, 253, 0.05) !important;
+        }
+        .table-row:nth-child(even) { background-color: rgba(22, 27, 34, 0.4); }
+        .table-row:nth-child(odd) { background-color: rgba(13, 17, 23, 0.4); }
+        
+        .status-submitted { color: #ff7b72; text-shadow: 0 0 8px rgba(255, 123, 114, 0.2); }
+        .status-in-review { color: #d29922; text-shadow: 0 0 8px rgba(210, 153, 34, 0.2); }
+        .status-repaired { color: #3fb950; text-shadow: 0 0 8px rgba(63, 185, 80, 0.2); }
+
+        .btn-tab {
+            transition: all 0.2s ease;
+        }
+        .btn-tab.active {
+            background: rgba(31, 111, 235, 0.2);
+            border-color: #58a6ff;
+            color: #58a6ff;
+        }
+        
+        .leaflet-popup-content-wrapper {
+            background: rgba(22, 27, 34, 0.95) !important;
+            backdrop-filter: blur(12px);
+            color: #e6edf3 !important;
+            border: 1px solid rgba(240, 246, 252, 0.15) !important;
+            border-radius: 12px !important;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.5) !important;
+        }
+        .leaflet-popup-tip {
+            background: rgba(22, 27, 34, 0.95) !important;
+            border-left: 1px solid rgba(240, 246, 252, 0.15) !important;
+            border-bottom: 1px solid rgba(240, 246, 252, 0.15) !important;
+        }
+        .leaflet-popup-image {
+            width: 100%;
+            height: 110px;
+            object-fit: cover;
+            border-radius: 8px;
+            margin-top: 8px;
+            border: 1px solid rgba(240, 246, 252, 0.1);
+        }
+        
+        .stat-card-glow-red { box-shadow: 0 0 15px rgba(255, 123, 114, 0.15); border-color: rgba(255, 123, 114, 0.2) !important; }
+        .stat-card-glow-yellow { box-shadow: 0 0 15px rgba(210, 153, 34, 0.15); border-color: rgba(210, 153, 34, 0.2) !important; }
+        .stat-card-glow-green { box-shadow: 0 0 15px rgba(63, 185, 80, 0.15); border-color: rgba(63, 185, 80, 0.2) !important; }
+        .stat-card-glow-blue { box-shadow: 0 0 15px rgba(56, 139, 253, 0.15); border-color: rgba(56, 139, 253, 0.2) !important; }
     </style>
 </head>
 <body class="p-4 sm:p-6 lg:p-8">
 
     <!-- Login Screen -->
-    <div id="login-screen" class="max-w-md mx-auto mt-20 card rounded-lg p-8 shadow-lg">
-        <h1 class="text-2xl font-bold text-center text-gray-100 mb-6">Admin Login</h1>
+    <div id="login-screen" class="max-w-md mx-auto mt-20 glass-card rounded-2xl p-8 shadow-2xl">
+        <h1 class="text-3xl font-extrabold text-center glow-title mb-2">GeoPothole Admin</h1>
+        <p class="text-center text-gray-400 text-xs mb-8">Access the multi-API infrastructure portal</p>
         <div class="space-y-4">
-            <input type="email" id="email-input" placeholder="Email" class="w-full bg-gray-900 border border-gray-700 rounded-md px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-cyan-500">
-            <input type="password" id="password-input" placeholder="Password" class="w-full bg-gray-900 border border-gray-700 rounded-md px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-cyan-500">
-            <button id="login-button" class="w-full bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2 px-4 rounded-lg">Login</button>
-            <p id="login-error" class="text-red-400 text-sm text-center"></p>
+            <input type="email" id="email-input" placeholder="Email Address" class="w-full bg-gray-900/60 border border-gray-700/85 rounded-lg px-3.5 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/50 text-sm">
+            <input type="password" id="password-input" placeholder="Password" class="w-full bg-gray-900/60 border border-gray-700/85 rounded-lg px-3.5 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/50 text-sm">
+            <button id="login-button" class="w-full bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2.5 px-4 rounded-xl text-sm transition duration-200">Sign In</button>
+            <p id="login-error" class="text-red-400 text-xs text-center font-medium mt-2"></p>
         </div>
     </div>
 
     <!-- Main Dashboard (Hidden by default) -->
-    <div id="dashboard" class="hidden">
-        <div class="flex justify-between items-center mb-6">
-            <h1 class="text-3xl font-bold text-gray-100">Pothole Management Dashboard</h1>
-            <button id="logout-button" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg">Logout</button>
+    <div id="dashboard" class="hidden max-w-7xl mx-auto">
+        <div class="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4">
+            <div>
+                <h1 class="text-3xl font-extrabold text-gray-100 glow-title">Infrastructure Management</h1>
+                <p class="text-sm text-gray-400 mt-1">Monitor, review, and dispatch road maintenance crews</p>
+            </div>
+            <button id="logout-button" class="bg-red-600/80 hover:bg-red-700 text-white font-bold py-2 px-5 rounded-lg text-sm transition duration-200 border border-red-500/20">Logout</button>
         </div>
 
-        <!-- Map View -->
-        <div class="card rounded-lg p-4 shadow-lg mb-8">
-            <h2 class="text-xl font-semibold mb-4 text-gray-200">Report Locations</h2>
-            <div id="map-admin"></div>
+        <!-- Metric Counter Cards -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <div class="glass-card rounded-xl p-5 border border-cyan-500/10 stat-card-glow-blue">
+                <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Total Reports</p>
+                <h3 id="stat-total" class="text-3xl font-extrabold text-white mt-2">0</h3>
+            </div>
+            <div class="glass-card rounded-xl p-5 border border-red-500/10 stat-card-glow-red">
+                <p class="text-xs font-semibold text-red-400 uppercase tracking-wider">Submitted</p>
+                <h3 id="stat-submitted" class="text-3xl font-extrabold text-red-500 mt-2">0</h3>
+            </div>
+            <div class="glass-card rounded-xl p-5 border border-yellow-500/10 stat-card-glow-yellow">
+                <p class="text-xs font-semibold text-yellow-400 uppercase tracking-wider">In Review</p>
+                <h3 id="stat-review" class="text-3xl font-extrabold text-yellow-500 mt-2">0</h3>
+            </div>
+            <div class="glass-card rounded-xl p-5 border border-green-500/10 stat-card-glow-green">
+                <p class="text-xs font-semibold text-green-400 uppercase tracking-wider">Repaired</p>
+                <h3 id="stat-repaired" class="text-3xl font-extrabold text-green-500 mt-2">0</h3>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+            <!-- Map View (Takes 2 cols on desktop) -->
+            <div class="glass-card rounded-2xl p-5 lg:col-span-2 shadow-2xl">
+                <h2 class="text-lg font-bold mb-4 text-gray-200 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path></svg>
+                    <span>Spatial Incident Visualizer</span>
+                </h2>
+                <div id="map-admin"></div>
+            </div>
+
+            <!-- Quick Guidelines card -->
+            <div class="glass-card rounded-2xl p-5 shadow-2xl flex flex-col justify-between">
+                <div>
+                    <h2 class="text-lg font-bold mb-4 text-gray-200 flex items-center gap-2">
+                        <svg class="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        <span>Incident Guidelines</span>
+                    </h2>
+                    <ul class="text-xs text-gray-400 space-y-3.5 leading-relaxed list-disc pl-4">
+                        <li>Reports within 20m are automatically aggregated onto the master record, increments are logged as confirmations.</li>
+                        <li>Check the weather logging details when reviewing repair urgency. Poor weather accelerates structural decay.</li>
+                        <li>Double click report thumbnails to expand the AI-annotated frame and examine coordinates bounding boxes.</li>
+                        <li>Update report states through the dropdown selectors in the active reports index.</li>
+                    </ul>
+                </div>
+                <div class="p-3 bg-white/5 border border-white/5 rounded-xl text-center text-xs text-cyan-400 font-mono mt-6">
+                    SYSTEM SECURED VIA FIREBASE ADMIN
+                </div>
+            </div>
         </div>
 
         <!-- Table View -->
-        <div class="card rounded-lg shadow-lg overflow-hidden">
-            <div class="p-4">
-                 <h2 class="text-xl font-semibold text-gray-200">All Reports</h2>
+        <div class="glass-card rounded-2xl shadow-2xl overflow-hidden border border-white/5">
+            <div class="p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white/5">
+                <h2 class="text-lg font-bold text-gray-200">Incident Logs & Audit Records</h2>
+                
+                <!-- Filter Tabs -->
+                <div class="flex bg-gray-900/60 rounded-lg p-1 border border-white/5 gap-1 text-xs">
+                    <button data-filter="all" class="btn-tab px-3.5 py-1.5 rounded-md font-semibold text-gray-400 active hover:text-white">All</button>
+                    <button data-filter="Submitted" class="btn-tab px-3.5 py-1.5 rounded-md font-semibold text-gray-400 hover:text-white">Submitted</button>
+                    <button data-filter="In Review" class="btn-tab px-3.5 py-1.5 rounded-md font-semibold text-gray-400 hover:text-white">In Review</button>
+                    <button data-filter="Repaired" class="btn-tab px-3.5 py-1.5 rounded-md font-semibold text-gray-400 hover:text-white">Repaired</button>
+                </div>
             </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-sm text-left">
-                    <thead class="table-header text-xs text-gray-300 uppercase">
+                    <thead class="table-header text-xs text-gray-300 uppercase tracking-wider font-semibold">
                         <tr>
-                            <th scope="col" class="px-6 py-3">Address</th>
-                            <th scope="col" class="px-6 py-3">Severity</th>
-                            <th scope="col" class="px-6 py-3">Confirmations</th>
-                            <th scope="col" class="px-6 py-3">Status</th>
-                            <th scope="col" class="px-6 py-3">Action</th>
+                            <th scope="col" class="px-6 py-4 text-center">Preview</th>
+                            <th scope="col" class="px-6 py-4">Address & Location Info</th>
+                            <th scope="col" class="px-6 py-4 text-center">Severity</th>
+                            <th scope="col" class="px-6 py-4 text-center">Confirmations</th>
+                            <th scope="col" class="px-6 py-4">Status</th>
+                            <th scope="col" class="px-6 py-4 text-center">Actions</th>
                         </tr>
                     </thead>
                     <tbody id="reports-table-body">
@@ -68,6 +198,19 @@
                     </tbody>
                 </table>
             </div>
+        </div>
+    </div>
+
+    <!-- Image Modal Viewer -->
+    <div id="image-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm hidden modal opacity-0 pointer-events-none transition-all duration-300">
+        <div class="relative max-w-3xl w-full glass-card rounded-2xl p-4 border border-white/10 shadow-2xl">
+            <button id="close-modal-btn" class="absolute top-4 right-4 bg-gray-800/80 hover:bg-gray-700/80 text-white rounded-full p-2 focus:outline-none border border-white/10 transition-colors z-10">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+            <div class="overflow-hidden rounded-xl">
+                <img id="modal-img" class="w-full h-auto max-h-[75vh] object-contain mx-auto" src="" alt="Enlarged assessment">
+            </div>
+            <div id="modal-caption" class="mt-4 text-center text-xs text-gray-400 font-mono"></div>
         </div>
     </div>
 
@@ -100,8 +243,15 @@ const firebaseConfig = {
         const loginError = document.getElementById('login-error');
         const reportsTableBody = document.getElementById('reports-table-body');
 
+        // Modal Elements
+        const imageModal = document.getElementById('image-modal');
+        const modalImg = document.getElementById('modal-img');
+        const modalCaption = document.getElementById('modal-caption');
+        const closeModalBtn = document.getElementById('close-modal-btn');
+
         let map;
         let reportsData = [];
+        let activeFilter = 'all';
 
         // --- AUTHENTICATION ---
         onAuthStateChanged(auth, (user) => {
@@ -135,12 +285,63 @@ const firebaseConfig = {
             }
         });
 
+        // --- IMAGE MODAL VIEWER LOGIC ---
+        function openModal(imgSrc, address) {
+            modalImg.src = imgSrc;
+            modalCaption.textContent = address || 'Pothole incident visual reference';
+            imageModal.classList.remove('hidden');
+            setTimeout(() => {
+                imageModal.classList.remove('opacity-0', 'pointer-events-none');
+            }, 50);
+        }
+
+        function closeModal() {
+            imageModal.classList.add('opacity-0', 'pointer-events-none');
+            setTimeout(() => {
+                imageModal.classList.add('hidden');
+                modalImg.src = '';
+            }, 250);
+        }
+
+        closeModalBtn.addEventListener('click', closeModal);
+        imageModal.addEventListener('click', (e) => {
+            if (e.target === imageModal) closeModal();
+        });
+
+        // --- METRIC STATE UPDATER ---
+        function updateStats(reports) {
+            document.getElementById('stat-total').textContent = reports.length;
+            document.getElementById('stat-submitted').textContent = reports.filter(r => r.status === 'Submitted').length;
+            document.getElementById('stat-review').textContent = reports.filter(r => r.status === 'In Review').length;
+            document.getElementById('stat-repaired').textContent = reports.filter(r => r.status === 'Repaired').length;
+        }
+
+        // --- TABS FILTER BINDING ---
+        const tabButtons = document.querySelectorAll('.btn-tab');
+        tabButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                tabButtons.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                activeFilter = btn.dataset.filter;
+                applyFilterAndRender();
+            });
+        });
+
+        function applyFilterAndRender() {
+            let filtered = reportsData;
+            if (activeFilter !== 'all') {
+                filtered = reportsData.filter(r => r.status === activeFilter);
+            }
+            renderTable(filtered);
+        }
+
         // --- DASHBOARD LOGIC ---
         async function loadDashboardData() {
             try {
                 const response = await fetch('/api/getReports');
                 reportsData = await response.json();
-                renderTable(reportsData);
+                updateStats(reportsData);
+                applyFilterAndRender();
                 initializeMap(reportsData);
             } catch (error) {
                 console.error("Failed to load dashboard data:", error);
@@ -149,26 +350,66 @@ const firebaseConfig = {
 
         function renderTable(reports) {
             reportsTableBody.innerHTML = ''; // Clear table
+            if (reports.length === 0) {
+                reportsTableBody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="px-6 py-10 text-center text-gray-500 font-medium">
+                            No incident records matching the selected state filter.
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
             reports.forEach(report => {
                 const row = document.createElement('tr');
-                row.className = 'table-row border-b border-gray-700';
+                row.className = 'table-row border-b border-white/5 align-middle';
+                
+                const thumbHtml = report.imageUrl 
+                    ? `<img src="${report.imageUrl}" class="w-12 h-12 object-cover rounded-lg border border-white/10 hover:scale-105 transition cursor-pointer admin-thumbnail mx-auto" data-img="${report.imageUrl}" data-address="${report.address || 'Reported Hazard'}">` 
+                    : `<div class="w-12 h-12 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-[10px] text-gray-500 mx-auto">No Pic</div>`;
+
                 row.innerHTML = `
-                    <td class="px-6 py-4 font-medium text-gray-200">${report.address || 'N/A'}</td>
-                    <td class="px-6 py-4 text-center">${report.severity || 'N/A'}</td>
-                    <td class="px-6 py-4 text-center">${report.confirmations}</td>
-                    <td class="px-6 py-4"><span class="font-semibold status-${report.status.toLowerCase().replace(' ', '-')}">${report.status}</span></td>
+                    <td class="px-6 py-4">${thumbHtml}</td>
                     <td class="px-6 py-4">
-                        <select data-id="${report.id}" class="change-status-select bg-gray-700 border border-gray-600 text-white text-sm rounded-lg focus:ring-cyan-500 focus:border-cyan-500 block w-full p-2.5">
-                            <option ${report.status === 'Submitted' ? 'selected' : ''}>Submitted</option>
-                            <option ${report.status === 'In Review' ? 'selected' : ''}>In Review</option>
-                            <option ${report.status === 'Repaired' ? 'selected' : ''}>Repaired</option>
-                        </select>
+                        <div class="font-medium text-gray-200">${report.address || 'Unknown Coordinates'}</div>
+                        <div class="text-xs text-gray-500 font-mono mt-1">
+                            ${report.latitude ? `${report.latitude.toFixed(5)}, ${report.longitude.toFixed(5)}` : ''} 
+                            ${report.weather ? ` • ${report.weather}` : ''}
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 text-center">
+                        <span class="px-2.5 py-1 rounded-md bg-amber-500/10 text-amber-400 font-extrabold text-xs">
+                            ${report.severity || 'N/A'}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 text-center font-semibold text-gray-300">${report.confirmations}</td>
+                    <td class="px-6 py-4">
+                        <span class="font-semibold status-${report.status.toLowerCase().replace(' ', '-')} text-xs tracking-wide uppercase">${report.status}</span>
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="flex items-center justify-center gap-3">
+                            <select data-id="${report.id}" class="change-status-select bg-gray-800 border border-gray-700 text-white text-xs rounded-lg focus:ring-cyan-500/50 focus:border-cyan-500 block p-2 transition">
+                                <option ${report.status === 'Submitted' ? 'selected' : ''}>Submitted</option>
+                                <option ${report.status === 'In Review' ? 'selected' : ''}>In Review</option>
+                                <option ${report.status === 'Repaired' ? 'selected' : ''}>Repaired</option>
+                            </select>
+                            
+                            <button class="btn-locate p-2 text-cyan-400 hover:text-cyan-300 bg-white/5 border border-white/5 hover:border-cyan-500/30 rounded-lg text-xs font-semibold flex items-center gap-1 transition" data-lat="${report.latitude}" data-lon="${report.longitude}">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path></svg>
+                                <span>Locate</span>
+                            </button>
+                        </div>
                     </td>
                 `;
                 reportsTableBody.appendChild(row);
             });
         }
         
+        const createCircleMarker = (color) => L.divIcon({ className: 'custom-div-icon', html: `<div style="background-color:${color};width:16px;height:16px;border-radius:50%;border:2px solid white;box-shadow: 0 0 10px ${color}"></div>`, iconSize: [20, 20], iconAnchor: [10, 10] });
+        const icons = { 'Submitted': createCircleMarker('#ff7b72'), 'In Review': createCircleMarker('#d29922'), 'Repaired': createCircleMarker('#3fb950') };
+        const defaultIcon = createCircleMarker('#8b949e');
+
         function initializeMap(reports) {
             if (!map) {
                 map = L.map('map-admin').setView([26.9124, 75.7873], 12);
@@ -185,12 +426,48 @@ const firebaseConfig = {
 
             reports.forEach(report => {
                 if (report.latitude && report.longitude) {
-                    const marker = L.marker([report.latitude, report.longitude]).addTo(map);
-                    marker.bindPopup(`<b>${report.address}</b><br>Status: ${report.status}`);
+                    const markerIcon = icons[report.status] || defaultIcon;
+                    const marker = L.marker([report.latitude, report.longitude], { icon: markerIcon }).addTo(map);
+                    const imgTag = report.imageUrl ? `<img src="${report.imageUrl}" class="leaflet-popup-image" alt="Pothole">` : '';
+                    marker.bindPopup(`
+                        <div class="p-1">
+                            <b class="text-sm font-semibold text-gray-100">${report.address || 'Pothole Report'}</b>
+                            <div class="mt-2 text-xs text-gray-300">
+                                Status: <span class="font-semibold text-cyan-400">${report.status}</span><br>
+                                Severity: <span class="font-semibold text-amber-400">${report.severity || 'N/A'}/10</span>
+                            </div>
+                            ${imgTag}
+                        </div>
+                    `);
                 }
             });
         }
         
+        // --- DELEGATED TABLE CLICKS ---
+        reportsTableBody.addEventListener('click', (e) => {
+            const thumb = e.target.closest('.admin-thumbnail');
+            if (thumb) {
+                openModal(thumb.dataset.img, thumb.dataset.address);
+                return;
+            }
+
+            const locateBtn = e.target.closest('.btn-locate');
+            if (locateBtn) {
+                const lat = parseFloat(locateBtn.dataset.lat);
+                const lon = parseFloat(locateBtn.dataset.lon);
+                if (lat && lon && map) {
+                    map.setView([lat, lon], 17);
+                    map.eachLayer(layer => {
+                        if (layer instanceof L.Marker && layer.getLatLng().lat === lat && layer.getLatLng().lng === lon) {
+                            layer.openPopup();
+                        }
+                    });
+                    document.getElementById('map-admin').scrollIntoView({ behavior: 'smooth' });
+                }
+                return;
+            }
+        });
+
         reportsTableBody.addEventListener('change', async (e) => {
             if (e.target.classList.contains('change-status-select')) {
                 const reportId = e.target.dataset.id;
