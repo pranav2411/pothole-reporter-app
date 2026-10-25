@@ -6,10 +6,19 @@ import { getFirestore } from 'firebase-admin/firestore';
 // This section securely initializes the Firebase Admin SDK.
 let db;
 try {
-    // Vercel caches environment variables, so we need to parse the key.
-    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
+    let keyStr = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+    if (typeof keyStr === 'string') {
+        keyStr = keyStr.trim();
+        if ((keyStr.startsWith("'") && keyStr.endsWith("'")) ||
+            (keyStr.startsWith('"') && keyStr.endsWith('"') && !keyStr.startsWith('{"'))) {
+            keyStr = keyStr.slice(1, -1);
+        }
+    }
+    const serviceAccount = JSON.parse(keyStr);
+    if (serviceAccount.private_key) {
+        serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
+    }
 
-    // Check if the app is already initialized to prevent errors in a serverless environment.
     if (!getApps().length) {
         initializeApp({
             credential: cert(serviceAccount)

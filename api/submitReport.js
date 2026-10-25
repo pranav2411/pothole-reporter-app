@@ -23,7 +23,19 @@ if (missingEnvVars.length > 0) {
 // --- INITIALIZATION ---
 let db;
 try {
-    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
+    let keyStr = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+    if (typeof keyStr === 'string') {
+        keyStr = keyStr.trim();
+        if ((keyStr.startsWith("'") && keyStr.endsWith("'")) ||
+            (keyStr.startsWith('"') && keyStr.endsWith('"') && !keyStr.startsWith('{"'))) {
+            keyStr = keyStr.slice(1, -1);
+        }
+    }
+    const serviceAccount = JSON.parse(keyStr);
+    if (serviceAccount.private_key) {
+        serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
+    }
+
     if (!getApps().length) {
         initializeApp({ credential: cert(serviceAccount) });
     }
