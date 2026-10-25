@@ -1,7 +1,12 @@
 import http from 'http';
 import fs from 'fs';
 import path from 'path';
+import dns from 'dns';
 import { fileURLToPath } from 'url';
+
+try {
+    dns.setDefaultResultOrder('ipv4first');
+} catch (e) {}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

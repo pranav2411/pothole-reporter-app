@@ -1479,11 +1479,13 @@
                     audio: false
                 });
                 dashcamVideo.srcObject = dashcamStream;
+                await dashcamVideo.play().catch(e => console.warn("Video play error:", e));
             } catch (e1) {
                 console.warn("Direct back camera access fallback:", e1);
                 try {
                     dashcamStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
                     dashcamVideo.srcObject = dashcamStream;
+                    await dashcamVideo.play().catch(e => console.warn("Video play error:", e));
                 } catch (e2) {
                     console.warn("Camera access denied:", e2);
                     showDashcamToast("Camera preview unavailable on this device. Manual frame evaluation active.");
@@ -1501,31 +1503,35 @@
             const dashcamCanvas = document.getElementById('dashcam-canvas');
             if (!dashcamVideo || !dashcamCanvas) return;
 
+            // Wait if video element hasn't loaded video stream dimensions
+            if (dashcamVideo.videoWidth === 0 || dashcamVideo.videoHeight === 0) {
+                return;
+            }
+
             isDashcamScanning = true;
             dashcamFramesCount++;
             const framesEl = document.getElementById('dashcam-frames-count');
             if (framesEl) framesEl.textContent = dashcamFramesCount;
 
             if (isManual) {
-                showDashcamToast("Logging windshield frame to municipal database...", 3000);
+                showDashcamToast("Analyzing road frame with dual Roboflow + Gemini AI...", 3000);
             }
 
             try {
-                // Use wide high-definition canvas resolution matching full windshield video
-                const targetWidth = dashcamVideo.videoWidth || 800;
-                const targetHeight = dashcamVideo.videoHeight || 600;
+                // Scale resolution to optimal 640px max width for ultra-fast low-latency upload
+                const maxDim = 640;
+                let targetWidth = dashcamVideo.videoWidth;
+                let targetHeight = dashcamVideo.videoHeight;
+                if (targetWidth > maxDim) {
+                    targetHeight = Math.round((targetHeight * maxDim) / targetWidth);
+                    targetWidth = maxDim;
+                }
                 dashcamCanvas.width = targetWidth;
                 dashcamCanvas.height = targetHeight;
                 const ctx = dashcamCanvas.getContext('2d');
-                
-                if (dashcamVideo.readyState >= 2) {
-                    ctx.drawImage(dashcamVideo, 0, 0, targetWidth, targetHeight);
-                } else {
-                    ctx.fillStyle = '#1e293b';
-                    ctx.fillRect(0, 0, targetWidth, targetHeight);
-                }
+                ctx.drawImage(dashcamVideo, 0, 0, targetWidth, targetHeight);
 
-                const frameBase64 = dashcamCanvas.toDataURL('image/jpeg', 0.8).split(',')[1];
+                const frameBase64 = dashcamCanvas.toDataURL('image/jpeg', 0.7).split(',')[1];
                 const loc = currentLocation || { latitude: 26.9124, longitude: 75.7873, address: 'Jaipur Roadway' };
 
                 const res = await fetch('/api/submitReport', {
@@ -1540,18 +1546,29 @@
                 });
                 const data = await res.json();
 
-                if (res.ok && (data.annotatedImage || data.reportId || data.title === "Report Submitted!" || (data.assessment && data.assessment.severity))) {
+                const isDetected = res.ok && (
+                    data.annotatedImage || 
+                    data.reportId || 
+                    data.title === "Report Submitted!" || 
+                    data.title === "Report Confirmed!" || 
+                    (data.assessment && data.assessment.severity > 0)
+                );
+
+                if (isDetected) {
                     dashcamHazardsCount++;
                     const hazardsEl = document.getElementById('dashcam-hazards-count');
                     if (hazardsEl) hazardsEl.textContent = dashcamHazardsCount;
                     playHazardChime();
                     const sev = data.assessment?.severity || '6';
-                    showDashcamToast(`HAZARD LOGGED (Severity ${sev}/10) - Saved to Municipal Database`, 3500);
+                    showDashcamToast(`⚠️ HAZARD DETECTED (Severity ${sev}/10) - Logged to Database`, 3500);
                     loadMapMarkers();
+                } else if (!res.ok) {
+                    console.warn("Dashcam backend error:", data.message);
+                    showDashcamToast(`API Notice: ${data.message || 'Server error'}`, 2500);
                 } else if (!isManual) {
                     showDashcamToast("Scanning: Road surface clear at current GPS", 1500);
                 } else {
-                    showDashcamToast(data.message || "Frame analyzed", 2500);
+                    showDashcamToast(data.message || "Frame analyzed - No active hazard", 2500);
                 }
             } catch (err) {
                 console.warn("Dashcam frame analysis error:", err);

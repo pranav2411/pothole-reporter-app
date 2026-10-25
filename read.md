@@ -44,28 +44,18 @@ Deploy on Vercel:
 
 Log in to Vercel and import this new GitHub repository.
 
-Before clicking "Deploy", expand the "Environment Variables" section. You now need to add FIVE keys:
+Before clicking "Deploy", expand the "Environment Variables" section. You can configure these keys:
 
-Key
+| Environment Variable | Description | Requirement |
+|---|---|---|
+| `FIREBASE_SERVICE_ACCOUNT_KEY` | Entire contents of your downloaded Firebase service account JSON key file | **Required** (Database) |
+| `ROBOFLOW_API_KEY` | Roboflow API key for real-time YOLO pothole detection (e.g. `djY6VSuRnjsR4C3waivR`) | Recommended |
+| `GEMINI_API_KEY` | Google AI Studio API Key for Gemini Flash AI damage assessment & dual-detection | Recommended |
+| `WEATHER_API_KEY` | OpenWeatherMap API Key for live weather metadata | Optional |
+| `RESEND_API_KEY` | Resend API Key for automated municipal email alerts (`re_...`) | Optional |
 
-Value
-
-FIREBASE_SERVICE_ACCOUNT_KEY
-
-Paste the entire contents of your JSON key file here.
-
-GEMINI_API_KEY
-
-Your key from Google AI Studio.
-
-ROBOFLOW_API_KEY
-
-djY6VSuRnjsR4C3waivR
-
-WEATHER_API_KEY
-
-Your key from OpenWeatherMap.
+*Note: The app is built with graceful fallbacks. If any optional key (`RESEND_API_KEY`, `WEATHER_API_KEY`, etc.) is omitted, the app will continue to work seamlessly without crashing or throwing 500 errors.*
 
 Click "Deploy".
 
-Your advanced application is now live! It's a significant step up, integrating multiple AI services and a real-time database to create a truly unique and powerful platform.
+Your advanced application is now live! It features continuous AI dashcam windshield scanning, dual YOLO + Gemini Vision pothole detection, citizen verification voting, proximity audio alerts, and real-time municipal synchronization.
