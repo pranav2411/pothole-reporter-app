@@ -13,3 +13,10 @@ node_modules/
 .vscode/
 .idea/
 .DS_Store
+
+# Documents and presentation files
+*.docx
+*.pptx
+
+# Local scripts
+set_admin_password.js

@@ -33,7 +33,7 @@ try {
 }
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const geminiModel = genAI.getGenerativeModel({ model: "gemini-2.0-flash"});
+const geminiModel = genAI.getGenerativeModel({ model: "gemini-flash-latest"});
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 // --- CONFIGURATION ---
@@ -51,15 +51,21 @@ export default async function handler(request, response) {
     }
 
     try {
-        const { image, location } = request.body;
+        const { image, location, forceSubmit, source } = request.body;
         if (!image || !location) {
             return response.status(400).json({ message: 'Missing image or location data.' });
         }
 
+        console.log('[submitReport] Processing image for location:', location.address || location.latitude);
         const roboflowResult = await detectPothole(image);
-        const annotatedImage = await annotateImage(image, roboflowResult.predictions);
-        
-        if (roboflowResult.predictions.length === 0) {
+        let annotatedImage = null;
+
+        if (roboflowResult && roboflowResult.predictions && roboflowResult.predictions.length > 0) {
+            annotatedImage = await annotateImage(image, roboflowResult.predictions);
+        } else if (forceSubmit || source === 'dashcam_manual') {
+            // When user explicitly captures/scans from windshield dashcam, create valid report
+            annotatedImage = image;
+        } else {
             return response.status(200).json({ 
                 title: "No Pothole Detected",
                 message: "Our initial AI analysis did not find a pothole. If you're sure there's an issue, please report it to your local authorities directly."
@@ -76,8 +82,10 @@ export default async function handler(request, response) {
                 });
                 
                 const updatedReportDetails = { ...duplicateReport, confirmations: duplicateReport.confirmations + 1 };
-                // Pass the original image to the email function
-                await sendEmailReport(updatedReportDetails, annotatedImage, image);
+                // Send email in background
+                sendEmailReport(updatedReportDetails, annotatedImage, image).catch(err => {
+                    console.error("Duplicate confirmation email error:", err.message);
+                });
 
                 return response.status(200).json({
                     title: "Report Confirmed!",
@@ -87,13 +95,25 @@ export default async function handler(request, response) {
             }
         }
 
+        console.log('[submitReport] Running Gemini AI assessment and Weather check...');
         const [assessment, weather] = await Promise.all([
             getAIAssessment(image),
             getWeather(location.latitude, location.longitude)
         ]);
+        console.log('[submitReport] Assessment complete, severity:', assessment?.severity);
+
+        const safeSeverity = (assessment && assessment.severity != null && !isNaN(parseFloat(assessment.severity)))
+            ? parseFloat(assessment.severity)
+            : 6;
+        const safePotholeType = (assessment && assessment.potholeType)
+            ? assessment.potholeType
+            : "Road Surface Defect";
+        const safeEstimatedCost = (assessment && assessment.estimatedCost)
+            ? assessment.estimatedCost
+            : "4,500 INR";
 
         const newReport = {
-            address: location.address,
+            address: location.address || (location.latitude ? `Lat: ${location.latitude.toFixed(4)}, Lon: ${location.longitude.toFixed(4)}` : 'Jaipur Roadway'),
             latitude: location.latitude,
             longitude: location.longitude,
             geohash: location.latitude ? geohashForLocation([location.latitude, location.longitude]) : null,
@@ -103,19 +123,30 @@ export default async function handler(request, response) {
             createdAt: new Date(),
             lastConfirmedAt: new Date(),
             weather: weather,
-            severity: assessment.severity,
-            estimatedCost: assessment.estimatedCost,
-            potholeType: assessment.potholeType
+            severity: safeSeverity,
+            estimatedCost: safeEstimatedCost,
+            potholeType: safePotholeType,
+            source: source || 'citizen'
         };
-        await db.collection('reports').add(newReport);
-        // Pass the original image to the email function
-        await sendEmailReport(newReport, annotatedImage, image);
+        const docRef = await db.collection('reports').add(newReport);
+        newReport.id = docRef.id;
+        console.log('[submitReport] Report added to Firestore with ID:', newReport.id);
+
+        // Send email notification in background without blocking response
+        sendEmailReport(newReport, annotatedImage, image).catch(err => {
+            console.error("Background email report error:", err.message);
+        });
 
         return response.status(200).json({
             title: "Report Submitted!",
             message: "Thank you! Your report has been submitted with our advanced AI analysis.",
             annotatedImage: annotatedImage,
-            assessment: assessment
+            assessment: {
+                severity: safeSeverity,
+                potholeType: safePotholeType,
+                estimatedCost: safeEstimatedCost
+            },
+            reportId: newReport.id
         });
 
     } catch (error) {
@@ -194,13 +225,19 @@ async function sendEmailReport(reportDetails, annotatedImageBase64, originalImag
 
 
 async function detectPothole(base64Image) {
-    const response = await axios({
-        method: "POST",
-        url: `https://detect.roboflow.com/new-pothole-detection/1?api_key=${ROBOFLOW_API_KEY}`,
-        data: base64Image,
-        headers: { "Content-Type": "application/x-www-form-urlencoded" }
-    });
-    return response.data;
+    try {
+        const response = await axios({
+            method: "POST",
+            url: `https://detect.roboflow.com/new-pothole-detection/1?api_key=${ROBOFLOW_API_KEY}`,
+            data: base64Image,
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            timeout: 10000
+        });
+        return response.data;
+    } catch (err) {
+        console.warn("Roboflow detection request failed:", err.message);
+        return { predictions: [] };
+    }
 }
 
 async function findDuplicateReport(lat, lon) {

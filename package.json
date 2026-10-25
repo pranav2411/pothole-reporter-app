@@ -2,6 +2,11 @@
   "name": "advanced-pothole-reporter",
   "version": "1.0.0",
   "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "test-env": "node test_env.js"
+  },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
     "@napi-rs/canvas": "^0.1.52",

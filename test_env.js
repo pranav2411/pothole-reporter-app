@@ -46,7 +46,7 @@ async function testFirebase() {
 async function testGemini() {
     try {
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+        const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
         const result = await model.generateContent("Respond with only the word 'OK'.");
         const text = result.response.text().trim();
         if (text.includes("OK") || text.length > 0) {

@@ -7,56 +7,81 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Leaflet Heatmap Layer -->
+    <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
         
+        :root {
+            --cornflower-blue: #6495ED;
+            --cornflower-blue-hover: #4F83E1;
+            --cornflower-blue-light: #EBF2FE;
+            --lemon-yellow-bg: #FEFCE8;
+            --lemon-yellow-card: #FFFDEB;
+            --lemon-yellow-border: #FDE047;
+            --lemon-yellow-accent: #FEF08A;
+            --crimson-red: #DC143C;
+            --crimson-red-hover: #B01030;
+            --crimson-red-light: #FEE2E2;
+            --dark-navy: #0A192F;
+            --dark-navy-muted: #1E293B;
+            --dark-navy-subtle: #475569;
+        }
+
         body {
             font-family: 'Plus Jakarta Sans', sans-serif;
-            background-color: #f8fafc;
-            color: #334155;
+            background-color: var(--lemon-yellow-bg);
+            color: var(--dark-navy);
         }
         
-        .font-heading {
-            font-family: 'Outfit', sans-serif;
+        .font-heading, h1, h2, h3, .serif-display {
+            font-family: 'DM Serif Display', Georgia, serif;
+            letter-spacing: -0.01em;
         }
         
         .glass-card {
-            background: #ffffff;
-            border: 1px solid #e2e8f0;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+            background: var(--lemon-yellow-card);
+            border: 1.5px solid var(--lemon-yellow-border);
+            box-shadow: 0 4px 14px rgba(10, 25, 47, 0.05);
         }
         
         #map-admin {
             height: 450px;
-            border-radius: 12px;
-            border: 1px solid #e2e8f0;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            border-radius: 14px;
+            border: 2px solid var(--cornflower-blue);
+            box-shadow: 0 2px 8px rgba(10, 25, 47, 0.06);
         }
         
         .table-header {
-            background-color: #f8fafc;
-            border-bottom: 2px solid #e2e8f0;
+            background-color: var(--lemon-yellow-accent);
+            border-bottom: 2px solid var(--lemon-yellow-border);
+            color: var(--dark-navy);
+            font-weight: 800;
         }
         
         .table-row {
             transition: background-color 0.2s ease;
-            border-bottom: 1px solid #f1f5f9;
+            border-bottom: 1px solid var(--lemon-yellow-border);
+            color: var(--dark-navy);
         }
         .table-row:hover {
-            background-color: #f8fafc !important;
+            background-color: var(--lemon-yellow-accent) !important;
         }
         
-        .status-submitted { color: #ef4444; font-weight: 700; }
-        .status-in-review { color: #f59e0b; font-weight: 700; }
-        .status-repaired { color: #10b981; font-weight: 700; }
+        .status-submitted { color: var(--crimson-red); font-weight: 800; }
+        .status-in-review { color: #d97706; font-weight: 800; }
+        .status-repaired { color: #059669; font-weight: 800; }
 
         .btn-tab {
             transition: all 0.2s ease;
+            color: var(--dark-navy);
+            border-color: var(--lemon-yellow-border);
         }
         .btn-tab.active {
-            background-color: #eff6ff;
-            border-color: #3b82f6;
-            color: #1d4ed8;
+            background-color: var(--cornflower-blue);
+            border-color: var(--cornflower-blue);
+            color: #ffffff;
+            font-weight: 800;
         }
         
         .modal {
@@ -64,15 +89,15 @@
         }
         
         .leaflet-popup-content-wrapper {
-            background: #ffffff !important;
-            color: #334155 !important;
-            border: 1px solid #e2e8f0 !important;
+            background: var(--lemon-yellow-card) !important;
+            color: var(--dark-navy) !important;
+            border: 2px solid var(--cornflower-blue) !important;
             border-radius: 12px !important;
-            box-shadow: 0 4px 20px rgba(15, 23, 42, 0.08) !important;
+            box-shadow: 0 4px 20px rgba(10, 25, 47, 0.1) !important;
         }
         .leaflet-popup-tip {
-            background: #ffffff !important;
-            border: 1px solid #e2e8f0 !important;
+            background: var(--lemon-yellow-card) !important;
+            border: 2px solid var(--cornflower-blue) !important;
         }
         .leaflet-popup-image {
             width: 100%;
@@ -80,112 +105,130 @@
             object-fit: cover;
             border-radius: 8px;
             margin-top: 8px;
-            border: 1px solid #e2e8f0;
+            border: 1px solid var(--lemon-yellow-border);
         }
     </style>
 </head>
-<body class="p-4 sm:p-6 lg:p-8">
+<body class="p-4 sm:p-6 lg:p-8" style="background-color: var(--lemon-yellow-bg); color: var(--dark-navy);">
 
     <!-- Login Screen -->
-    <div id="login-screen" class="max-w-md mx-auto mt-20 glass-card rounded-2xl p-8">
+    <div id="login-screen" class="max-w-md mx-auto mt-20 glass-card rounded-2xl p-8 shadow-xl">
         <div class="text-center mb-8">
-            <h1 class="text-2xl font-extrabold text-slate-800 tracking-tight font-heading mb-1.5">GeoPothole Admin</h1>
-            <p class="text-slate-400 text-xs mt-1.5 uppercase font-bold tracking-wider">Infrastructure Control Portal</p>
+            <h1 class="text-3xl font-black tracking-tight font-heading mb-1.5" style="color: var(--dark-navy);">GeoPothole <span style="color: var(--crimson-red);">Admin</span></h1>
+            <p class="text-xs uppercase font-bold tracking-wider" style="color: var(--cornflower-blue);">Infrastructure Control Portal</p>
         </div>
         
         <div class="space-y-4">
             <div>
-                <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Email Address</label>
-                <input type="email" id="email-input" placeholder="admin@city.org" class="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/30 text-sm">
+                <label class="block text-[11px] font-extrabold uppercase tracking-wider mb-1.5" style="color: var(--crimson-red);">Email Address</label>
+                <input type="email" id="email-input" placeholder="admin@city.org" class="w-full bg-white rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2" style="border: 1.5px solid var(--cornflower-blue); color: var(--dark-navy);">
             </div>
             <div>
-                <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Password</label>
-                <input type="password" id="password-input" placeholder="••••••••" class="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/30 text-sm">
+                <label class="block text-[11px] font-extrabold uppercase tracking-wider mb-1.5" style="color: var(--crimson-red);">Password</label>
+                <input type="password" id="password-input" placeholder="••••••••" class="w-full bg-white rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2" style="border: 1.5px solid var(--cornflower-blue); color: var(--dark-navy);">
             </div>
-            <button id="login-button" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-4 rounded-xl text-sm transition duration-200 shadow-md shadow-blue-500/10">Sign In</button>
-            <p id="login-error" class="text-red-500 text-xs text-center font-semibold mt-2"></p>
+            <button id="login-button" class="w-full text-white font-black py-3 px-4 rounded-xl text-sm transition duration-200 shadow-md" style="background-color: var(--cornflower-blue);">Sign In</button>
+            <p id="login-error" class="text-xs text-center font-bold mt-2" style="color: var(--crimson-red);"></p>
         </div>
     </div>
 
     <!-- Main Dashboard (Hidden by default) -->
     <div id="dashboard" class="hidden max-w-7xl mx-auto space-y-6">
-        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4 border-b" style="border-color: var(--lemon-yellow-border);">
             <div>
-                <h1 class="text-2xl font-extrabold text-slate-800 tracking-tight font-heading flex items-center gap-2">
+                <h1 class="text-2xl font-black tracking-tight font-heading flex items-center gap-2" style="color: var(--dark-navy);">
                     <span>Municipal Administration</span>
+                    <span class="text-xs font-bold px-2 py-0.5 rounded-full text-white" style="background-color: var(--crimson-red);">Control Center</span>
                 </h1>
-                <p class="text-xs text-slate-400 mt-1 uppercase font-bold tracking-wider">Review, dispatch and monitor road maintenance crews</p>
+                <p class="text-xs uppercase font-bold tracking-wider mt-1" style="color: var(--cornflower-blue);">Review, dispatch and monitor road maintenance crews</p>
             </div>
-            <button id="logout-button" class="bg-red-50 hover:bg-red-100 text-red-600 font-bold py-2 px-5 rounded-xl text-xs transition duration-200 border border-red-200">Logout</button>
+            <div class="flex items-center gap-3">
+                <a href="/" class="font-bold text-xs py-2 px-4 rounded-xl transition border" style="border-color: var(--cornflower-blue); color: var(--cornflower-blue);">Citizen App →</a>
+                <button id="logout-button" class="font-bold py-2 px-5 rounded-xl text-xs transition duration-200 text-white" style="background-color: var(--crimson-red);">Logout</button>
+            </div>
         </div>
 
         <!-- Metric Counter Cards -->
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div class="glass-card rounded-xl p-5 border-l-4 border-l-blue-500">
-                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Reports</p>
-                <h3 id="stat-total" class="text-3xl font-extrabold text-slate-800 mt-2 font-heading">0</h3>
+            <div class="glass-card rounded-xl p-5 border-l-4" style="border-left-color: var(--cornflower-blue);">
+                <p class="text-[10px] font-black uppercase tracking-wider" style="color: var(--cornflower-blue);">Total Complaints</p>
+                <h3 id="stat-total" class="text-3xl font-black mt-2 font-heading" style="color: var(--dark-navy);">0</h3>
+                <p class="text-[10px] font-semibold mt-1" style="color: var(--dark-navy-subtle);">All logged road defects</p>
             </div>
-            <div class="glass-card rounded-xl p-5 border-l-4 border-l-red-500">
-                <p class="text-[10px] font-bold text-red-500 uppercase tracking-wider">Submitted</p>
-                <h3 id="stat-submitted" class="text-3xl font-extrabold text-slate-800 mt-2 font-heading">0</h3>
+            <div class="glass-card rounded-xl p-5 border-l-4" style="border-left-color: var(--crimson-red);">
+                <p class="text-[10px] font-black uppercase tracking-wider" style="color: var(--crimson-red);">Pending Review</p>
+                <h3 id="stat-submitted" class="text-3xl font-black mt-2 font-heading" style="color: var(--crimson-red);">0</h3>
+                <p class="text-[10px] font-semibold mt-1" style="color: var(--dark-navy-subtle);">Awaiting initial inspection</p>
             </div>
-            <div class="glass-card rounded-xl p-5 border-l-4 border-l-amber-500">
-                <p class="text-[10px] font-bold text-amber-500 uppercase tracking-wider">In Review</p>
-                <h3 id="stat-review" class="text-3xl font-extrabold text-slate-800 mt-2 font-heading">0</h3>
+            <div class="glass-card rounded-xl p-5 border-l-4" style="border-left-color: #d97706;">
+                <p class="text-[10px] font-black uppercase tracking-wider" style="color: #d97706);">Crew Dispatched</p>
+                <h3 id="stat-review" class="text-3xl font-black mt-2 font-heading" style="color: var(--dark-navy);">0</h3>
+                <p class="text-[10px] font-semibold mt-1" style="color: var(--dark-navy-subtle);">Active repair work orders</p>
             </div>
-            <div class="glass-card rounded-xl p-5 border-l-4 border-l-emerald-500">
-                <p class="text-[10px] font-bold text-emerald-500 uppercase tracking-wider">Repaired</p>
-                <h3 id="stat-repaired" class="text-3xl font-extrabold text-slate-800 mt-2 font-heading">0</h3>
+            <div class="glass-card rounded-xl p-5 border-l-4" style="border-left-color: #059669;">
+                <p class="text-[10px] font-black uppercase tracking-wider" style="color: #059669;">Repaired & Closed</p>
+                <h3 id="stat-repaired" class="text-3xl font-black mt-2 font-heading" style="color: #059669;">0</h3>
+                <p class="text-[10px] font-semibold mt-1" style="color: var(--dark-navy-subtle);">Fixed and verified</p>
             </div>
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <!-- Map View (Takes 2 cols on desktop) -->
             <div class="glass-card rounded-2xl p-5 lg:col-span-2 shadow-sm">
-                <h2 class="text-base font-bold mb-4 text-slate-800 font-heading flex items-center gap-2">
-                    <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path></svg>
-                    <span>Spatial Map Overview</span>
-                </h2>
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-base font-black font-heading flex items-center gap-2" style="color: var(--dark-navy);">
+                        <svg class="w-4 h-4" style="color: var(--cornflower-blue);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path></svg>
+                        <span>Spatial Map Overview</span>
+                    </h2>
+                    <!-- Pins vs Severity Heatmap Layer Switcher -->
+                    <div class="flex items-center rounded-lg p-1 border gap-1 text-xs font-bold" style="background-color: var(--lemon-yellow-accent); border-color: var(--lemon-yellow-border);">
+                        <button id="admin-mode-pins" class="px-2.5 py-1 rounded text-xs font-bold active shadow-sm" style="background-color: var(--cornflower-blue); color: #ffffff;">Pins</button>
+                        <button id="admin-mode-heat" class="px-2.5 py-1 rounded text-xs font-bold hover:opacity-80" style="color: var(--dark-navy);">Severity Heatmap</button>
+                    </div>
+                </div>
                 <div id="map-admin"></div>
             </div>
 
-            <!-- Guidelines Card -->
+            <!-- Officer Inspection & Dispatch Protocol Card -->
             <div class="glass-card rounded-2xl p-5 flex flex-col justify-between shadow-sm">
                 <div>
-                    <h2 class="text-base font-bold mb-4 text-slate-800 font-heading flex items-center gap-2">
-                        <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                        <span>Audit Guidelines</span>
-                    </h2>
-                    <ul class="text-xs text-slate-500 space-y-3.5 leading-relaxed list-disc pl-4 font-medium">
-                        <li>Duplicates are merged dynamically inside a 20-meter range. Real-time updates accumulate confirmations.</li>
-                        <li>Assess structural erosion and severity index to optimize dispatcher routes.</li>
-                        <li>Click audit row thumbnails to inspect bounding boxes and confidence ratios.</li>
-                        <li>Use dropdown elements to update active incident status codes immediately.</li>
+                    <div class="flex items-center justify-between mb-3 pb-2 border-b" style="border-color: var(--lemon-yellow-border);">
+                        <h2 class="text-base font-black font-heading flex items-center gap-2" style="color: var(--dark-navy);">
+                            <span>Repair Dispatch Protocol</span>
+                        </h2>
+                        <span class="text-[10px] font-black px-2 py-0.5 rounded text-white" style="background-color: var(--cornflower-blue);">PWD SOP</span>
+                    </div>
+                    <ul class="text-xs space-y-3 leading-relaxed list-disc pl-4 font-semibold" style="color: var(--dark-navy-muted);">
+                        <li><strong>Site Photo Check:</strong> Verify the uploaded photo and cross-reference nearby street landmarks before assigning crews.</li>
+                        <li><strong>Priority Road Repair:</strong> High-severity defects (7+) along bus/arterial roads require same-day bitumen patching.</li>
+                        <li><strong>Duplicate Grouping:</strong> Reports within 20 meters are merged automatically into a single work order with citizen votes.</li>
+                        <li><strong>Lifecycle Status:</strong> Set status to <em>In Review</em> when dispatching crews, and <em>Repaired</em> after asphalt compaction.</li>
                     </ul>
                 </div>
-                <div class="p-3 bg-slate-50 border border-slate-100 rounded-xl text-center text-[10px] text-blue-600 font-mono font-bold mt-6 uppercase tracking-wider">
-                    Secure Infrastructure Operations
+                <div class="p-3.5 rounded-xl border mt-5 text-[11px] font-bold" style="background-color: var(--lemon-yellow-accent); border-color: var(--lemon-yellow-border); color: var(--dark-navy);">
+                    <p class="text-[10px] uppercase font-black tracking-wider mb-0.5" style="color: var(--crimson-red);">Road Maintenance Control Room</p>
+                    <p class="font-mono text-xs font-extrabold">Tel: 0141-2742823 • Email: pwd-repair@jaipurmc.org</p>
                 </div>
             </div>
         </div>
 
         <!-- Table View -->
         <div class="glass-card rounded-2xl shadow-sm overflow-hidden">
-            <div class="p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-100">
-                <h2 class="text-base font-bold text-slate-800 font-heading">Incident Logs & Maintenance Records</h2>
+            <div class="p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b" style="border-color: var(--lemon-yellow-border);">
+                <h2 class="text-base font-black font-heading" style="color: var(--dark-navy);">Incident Logs & Maintenance Records</h2>
                 
                 <!-- Filter Tabs -->
-                <div class="flex bg-slate-100 rounded-lg p-0.5 border border-slate-200/50 gap-0.5 text-xs font-semibold">
-                    <button data-filter="all" class="btn-tab px-3 py-1.5 rounded-md text-slate-500 hover:text-slate-800 active">All</button>
-                    <button data-filter="Submitted" class="btn-tab px-3 py-1.5 rounded-md text-slate-500 hover:text-slate-800">Submitted</button>
-                    <button data-filter="In Review" class="btn-tab px-3 py-1.5 rounded-md text-slate-500 hover:text-slate-800">In Review</button>
-                    <button data-filter="Repaired" class="btn-tab px-3 py-1.5 rounded-md text-slate-500 hover:text-slate-800">Repaired</button>
+                <div class="flex rounded-lg p-1 border gap-1 text-xs font-bold" style="background-color: var(--lemon-yellow-accent); border-color: var(--lemon-yellow-border);">
+                    <button data-filter="all" class="btn-tab px-3 py-1.5 rounded-md active">All</button>
+                    <button data-filter="Submitted" class="btn-tab px-3 py-1.5 rounded-md">Submitted</button>
+                    <button data-filter="In Review" class="btn-tab px-3 py-1.5 rounded-md">In Review</button>
+                    <button data-filter="Repaired" class="btn-tab px-3 py-1.5 rounded-md">Repaired</button>
                 </div>
             </div>
             
             <div class="overflow-x-auto">
                 <table class="w-full text-xs text-left">
-                    <thead class="table-header text-[10px] text-slate-400 uppercase tracking-wider font-bold">
+                    <thead class="table-header text-[10px] uppercase tracking-wider font-extrabold" style="background-color: var(--lemon-yellow-accent); color: var(--dark-navy);">
                         <tr>
                             <th scope="col" class="px-6 py-4 text-center">Preview</th>
                             <th scope="col" class="px-6 py-4">Incident Address & Geocode</th>
@@ -414,38 +457,111 @@
         const icons = { 'Submitted': createCircleMarker('#ef4444'), 'In Review': createCircleMarker('#f59e0b'), 'Repaired': createCircleMarker('#10b981') };
         const defaultIcon = createCircleMarker('#64748b');
 
+        let adminMapMode = 'pins';
+        let adminHeatLayer = null;
+
         function initializeMap(reports) {
             if (!map) {
                 map = L.map('map-admin', { zoomControl: false }).setView([26.9124, 75.7873], 12);
                 L.control.zoom({ position: 'bottomright' }).addTo(map);
                 
-                L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+                // Google Maps Layer (Clean, crisp, no API watermark required)
+                L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
                     maxZoom: 20,
-                    attribution: '© OpenStreetMap & CARTO'
+                    subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+                    attribution: '© Google Maps'
                 }).addTo(map);
             }
-            
-            // Clear existing markers
+            renderAdminMapLayers(reports);
+        }
+
+        function renderAdminMapLayers(reports) {
+            if (!map) return;
+            const data = reports || reportsData || [];
+
+            // Clean up existing markers
             map.eachLayer(layer => {
                 if (layer instanceof L.Marker) map.removeLayer(layer);
             });
+            // Clean up existing heat layer
+            if (adminHeatLayer) {
+                map.removeLayer(adminHeatLayer);
+                adminHeatLayer = null;
+            }
 
-            reports.forEach(report => {
-                if (report.latitude && report.longitude) {
-                    const markerIcon = icons[report.status] || defaultIcon;
-                    const marker = L.marker([report.latitude, report.longitude], { icon: markerIcon }).addTo(map);
-                    const imgTag = report.imageUrl ? `<img src="${report.imageUrl}" class="leaflet-popup-image" alt="Pothole">` : '';
-                    marker.bindPopup(`
-                        <div class="p-1 text-xs">
-                            <b class="text-slate-800 font-bold block mb-1">${report.address || 'Pothole Report'}</b>
-                            <div class="text-slate-500 mb-2 leading-relaxed">
-                                Status: <span class="font-bold text-blue-600">${report.status}</span><br>
-                                Severity: <span class="font-bold text-amber-500">${report.severity || 'N/A'}/10</span>
+            if (adminMapMode === 'pins') {
+                data.forEach(report => {
+                    if (report.latitude && report.longitude) {
+                        const markerIcon = icons[report.status] || defaultIcon;
+                        const marker = L.marker([report.latitude, report.longitude], { icon: markerIcon }).addTo(map);
+                        const imgTag = report.imageUrl ? `<img src="${report.imageUrl}" class="leaflet-popup-image" alt="Pothole">` : '';
+                        marker.bindPopup(`
+                            <div class="p-1 text-xs">
+                                <b class="text-slate-800 font-bold block mb-1">${report.address || 'Pothole Report'}</b>
+                                <div class="text-slate-500 mb-2 leading-relaxed">
+                                    Status: <span class="font-bold text-blue-600">${report.status}</span><br>
+                                    Severity: <span class="font-bold text-amber-500">${report.severity || 'N/A'}/10</span>
+                                </div>
+                                ${imgTag}
                             </div>
-                            ${imgTag}
-                        </div>
-                    `);
+                        `);
+                    }
+                });
+            } else if (adminMapMode === 'heat') {
+                const heatPoints = [];
+                data.forEach(report => {
+                    const lat = parseFloat(report.latitude);
+                    const lon = parseFloat(report.longitude);
+                    if (!isNaN(lat) && !isNaN(lon)) {
+                        let numSev = parseFloat(report.severity);
+                        if (isNaN(numSev) || numSev <= 0) numSev = 5;
+                        const weight = Math.max(0.3, Math.min(1.0, numSev / 10));
+                        heatPoints.push([lat, lon, weight]);
+                    }
+                });
+                if (window.L && L.heatLayer && heatPoints.length > 0) {
+                    adminHeatLayer = L.heatLayer(heatPoints, {
+                        radius: 35,
+                        blur: 22,
+                        maxZoom: 16,
+                        max: 1.0,
+                        minOpacity: 0.35,
+                        gradient: {
+                            0.2: '#6495ED',
+                            0.5: '#f59e0b',
+                            0.8: '#dc143c',
+                            1.0: '#7f1d1d'
+                        }
+                    }).addTo(map);
+
+                    // Auto-fit bounds so all clusters across Jaipur (Sanganer, Tonk Phatak, Bani Park, Vaishali) are displayed
+                    const bounds = L.latLngBounds(heatPoints.map(p => [p[0], p[1]]));
+                    if (bounds.isValid()) {
+                        map.fitBounds(bounds, { padding: [45, 45], maxZoom: 14 });
+                    }
                 }
+            }
+        }
+
+        // Switch admin map mode
+        const adminBtnPins = document.getElementById('admin-mode-pins');
+        const adminBtnHeat = document.getElementById('admin-mode-heat');
+        if (adminBtnPins && adminBtnHeat) {
+            adminBtnPins.addEventListener('click', () => {
+                adminMapMode = 'pins';
+                adminBtnPins.style.backgroundColor = 'var(--cornflower-blue)';
+                adminBtnPins.style.color = '#ffffff';
+                adminBtnHeat.style.backgroundColor = 'transparent';
+                adminBtnHeat.style.color = 'var(--dark-navy)';
+                renderAdminMapLayers(reportsData);
+            });
+            adminBtnHeat.addEventListener('click', () => {
+                adminMapMode = 'heat';
+                adminBtnHeat.style.backgroundColor = 'var(--cornflower-blue)';
+                adminBtnHeat.style.color = '#ffffff';
+                adminBtnPins.style.backgroundColor = 'transparent';
+                adminBtnPins.style.color = 'var(--dark-navy)';
+                renderAdminMapLayers(reportsData);
             });
         }
 
