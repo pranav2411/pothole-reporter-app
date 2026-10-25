@@ -7,7 +7,7 @@
     
     <!-- PWA Meta tags -->
     <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#3b82f6">
+    <meta name="theme-color" content="#6495ED">
     <link rel="apple-touch-icon" href="/icon-192.png">
     
     <!-- CDNs -->
@@ -270,16 +270,20 @@
             <!-- Proximity Hazard Heads-Up Display (HUD) Banner (Pops down within 50m of severe hazard) -->
             <div id="proximity-hud" class="hidden absolute top-14 left-3 right-3 sm:left-auto sm:right-3 sm:max-w-md z-[1000] rounded-2xl p-3.5 shadow-2xl border-2 flex items-start justify-between gap-3 backdrop-blur-md transition-all duration-300" style="background-color: rgba(220, 20, 60, 0.96); border-color: #FEF08A; color: #FFFFFF;">
                 <div class="min-w-0 flex-1">
-                    <div class="flex items-center gap-2">
+                    <div class="flex items-center gap-2 flex-wrap">
                         <span class="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-black/40 border border-white/20">
                             ROAD DEFECT NEARBY
                         </span>
                         <span id="hud-distance" class="text-xs font-black text-yellow-300 font-mono">35m Ahead</span>
+                        <span id="hud-timer-badge" class="text-[9px] font-mono font-bold text-yellow-200 bg-black/35 px-2 py-0.5 rounded-full border border-white/20">Auto-closing in 10s</span>
                     </div>
                     <p id="hud-address" class="text-xs font-black mt-1 leading-snug line-clamp-2 text-white"></p>
                     <p id="hud-meta" class="text-[10px] font-semibold text-yellow-100 mt-0.5">High-Severity Pothole - Caution Recommended</p>
                 </div>
-                <button id="btn-dismiss-hud" class="p-1 px-2 text-xs font-bold rounded-lg bg-black/25 hover:bg-black/40 text-white shrink-0 leading-none">&times;</button>
+                <button id="btn-dismiss-hud" class="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-black/30 hover:bg-black/50 text-white shrink-0 border border-white/20 transition cursor-pointer flex items-center gap-1">
+                    <span>Dismiss</span>
+                    <span class="text-xs font-black">&times;</span>
+                </button>
             </div>
         </div>
         
@@ -699,6 +703,27 @@
         let currentMapMode = 'pins'; // 'pins' or 'heatmap'
         let audioAlertsEnabled = true;
         let alertedPotholeIds = new Set();
+        let sessionDismissedHazardIds = new Set();
+        let currentDisplayedHazardId = null;
+        let hudAutoCloseTimer = null;
+        let hudIntervalTimer = null;
+
+        function dismissHazardAlert(hazardId) {
+            const idToDismiss = hazardId || currentDisplayedHazardId;
+            if (idToDismiss) {
+                sessionDismissedHazardIds.add(idToDismiss);
+            }
+            if (hudAutoCloseTimer) clearTimeout(hudAutoCloseTimer);
+            if (hudIntervalTimer) clearInterval(hudIntervalTimer);
+            hudAutoCloseTimer = null;
+            hudIntervalTimer = null;
+            currentDisplayedHazardId = null;
+
+            const proximityHud = document.getElementById('proximity-hud');
+            if (proximityHud) {
+                proximityHud.classList.add('hidden');
+            }
+        }
 
         // Continuous Dashcam Mode State
         let dashcamStream = null;
@@ -765,6 +790,9 @@
             for (const report of allReportsData) {
                 if (!report.latitude || !report.longitude) continue;
                 if (report.status === 'Repaired') continue;
+                // Once closed/dismissed during this app session, NEVER pop up again during this session!
+                if (sessionDismissedHazardIds.has(report.id)) continue;
+
                 const severity = report.severity || 5;
                 if (severity < 5) continue;
                 
@@ -778,6 +806,7 @@
             const proximityHud = document.getElementById('proximity-hud');
             const hudDistance = document.getElementById('hud-distance');
             const hudAddress = document.getElementById('hud-address');
+            const hudTimerBadge = document.getElementById('hud-timer-badge');
 
             if (nearestReport && minDistance <= 50) {
                 if (!alertedPotholeIds.has(nearestReport.id)) {
@@ -786,17 +815,39 @@
                     speakHazardWarning(`Caution: High severity road defect ahead in ${Math.round(minDistance)} meters.`);
                 }
                 
-                if (proximityHud) {
+                if (proximityHud && currentDisplayedHazardId !== nearestReport.id) {
+                    currentDisplayedHazardId = nearestReport.id;
                     hudDistance.textContent = `${Math.round(minDistance)}m Ahead (Severity ${nearestReport.severity || 'N/A'}/10)`;
                     hudAddress.textContent = nearestReport.address || 'Reported Road Defect';
                     proximityHud.classList.remove('hidden');
+
+                    // Auto-dismiss automatically after 10 seconds
+                    if (hudAutoCloseTimer) clearTimeout(hudAutoCloseTimer);
+                    if (hudIntervalTimer) clearInterval(hudIntervalTimer);
+                    
+                    let remainingSecs = 10;
+                    if (hudTimerBadge) hudTimerBadge.textContent = `Auto-closing in ${remainingSecs}s`;
+
+                    hudIntervalTimer = setInterval(() => {
+                        remainingSecs--;
+                        if (hudTimerBadge) {
+                            hudTimerBadge.textContent = `Auto-closing in ${remainingSecs}s`;
+                        }
+                        if (remainingSecs <= 0) {
+                            clearInterval(hudIntervalTimer);
+                        }
+                    }, 1000);
+
+                    hudAutoCloseTimer = setTimeout(() => {
+                        dismissHazardAlert(nearestReport.id);
+                    }, 10000);
+                } else if (proximityHud && currentDisplayedHazardId === nearestReport.id) {
+                    // Update live distance as driver moves closer
+                    hudDistance.textContent = `${Math.round(minDistance)}m Ahead (Severity ${nearestReport.severity || 'N/A'}/10)`;
                 }
             } else {
-                if (minDistance > 80 && proximityHud) {
-                    proximityHud.classList.add('hidden');
-                }
-                if (nearestReport && minDistance > 120) {
-                    alertedPotholeIds.delete(nearestReport.id);
+                if (minDistance > 80 && proximityHud && currentDisplayedHazardId) {
+                    dismissHazardAlert(currentDisplayedHazardId);
                 }
             }
         }
@@ -1384,7 +1435,7 @@
         });
 
         btnDismissHud?.addEventListener('click', () => {
-            if (proximityHud) proximityHud.classList.add('hidden');
+            dismissHazardAlert(currentDisplayedHazardId);
         });
 
         // ==========================================
