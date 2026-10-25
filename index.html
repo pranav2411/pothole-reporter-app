@@ -492,6 +492,8 @@
                         <div class="flex items-center gap-2">
                             <button id="open-about-footer" class="hover:underline font-extrabold" style="color: var(--cornflower-blue);">About Our App</button>
                             <span class="text-slate-300">•</span>
+                            <button onclick="clearAppCacheAndReload()" class="text-[10px] font-bold opacity-60 hover:opacity-100 hover:text-blue-600 transition" title="Clear cache and reload latest version">↻ Reload App</button>
+                            <span class="text-slate-300">•</span>
                             <a href="/admin" class="text-[10px] font-bold opacity-50 hover:opacity-100 transition" title="Staff Portal" style="color: var(--dark-navy);">Staff Login</a>
                         </div>
                     </div>
@@ -1147,41 +1149,74 @@
             }
         }
 
-        // Downscale and compress image client-side to strictly prevent Vercel 413 FUNCTION_PAYLOAD_TOO_LARGE
-        function compressAndResizeImage(file, maxDimension = 1280, quality = 0.8) {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    const img = new Image();
-                    img.onload = () => {
-                        let { width, height } = img;
-                        if (width > maxDimension || height > maxDimension) {
-                            if (width > height) {
-                                height = Math.round((height * maxDimension) / width);
-                                width = maxDimension;
-                            } else {
-                                width = Math.round((width * maxDimension) / height);
-                                height = maxDimension;
-                            }
+        // Helper: downscale base64 if needed
+        function compressBase64(base64Str, maxDimension = 1024, quality = 0.75) {
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => {
+                    let { width, height } = img;
+                    if (width > maxDimension || height > maxDimension) {
+                        if (width > height) {
+                            height = Math.round((height * maxDimension) / width);
+                            width = maxDimension;
+                        } else {
+                            width = Math.round((width * maxDimension) / height);
+                            height = maxDimension;
                         }
-                        const canvas = document.createElement('canvas');
-                        canvas.width = width;
-                        canvas.height = height;
-                        const ctx = canvas.getContext('2d');
-                        ctx.drawImage(img, 0, 0, width, height);
-                        const dataUrl = canvas.toDataURL('image/jpeg', quality);
-                        const base64 = dataUrl.split(',')[1];
-                        console.log(`[ImageCompression] Original: ${(file.size / 1024).toFixed(1)} KB -> Compressed: ${(base64.length * 0.75 / 1024).toFixed(1)} KB (${width}x${height})`);
-                        resolve(base64);
-                    };
-                    img.onerror = () => {
-                        console.warn("[ImageCompression] Canvas decode fallback, using raw image");
-                        resolve(e.target.result.split(',')[1]);
-                    };
-                    img.src = e.target.result;
+                    }
+                    const canvas = document.createElement('canvas');
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    const dataUrl = canvas.toDataURL('image/jpeg', quality);
+                    resolve(dataUrl.split(',')[1]);
                 };
-                reader.onerror = err => reject(err);
-                reader.readAsDataURL(file);
+                img.onerror = () => resolve(base64Str);
+                img.src = `data:image/jpeg;base64,${base64Str}`;
+            });
+        }
+
+        // Downscale and compress image client-side to strictly prevent Vercel 413 FUNCTION_PAYLOAD_TOO_LARGE
+        function compressAndResizeImage(file, maxDimension = 1024, quality = 0.75) {
+            return new Promise((resolve, reject) => {
+                const objectUrl = URL.createObjectURL(file);
+                const img = new Image();
+                img.onload = () => {
+                    URL.revokeObjectURL(objectUrl);
+                    let { width, height } = img;
+                    if (width > maxDimension || height > maxDimension) {
+                        if (width > height) {
+                            height = Math.round((height * maxDimension) / width);
+                            width = maxDimension;
+                        } else {
+                            width = Math.round((width * maxDimension) / height);
+                            height = maxDimension;
+                        }
+                    }
+                    const canvas = document.createElement('canvas');
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    const dataUrl = canvas.toDataURL('image/jpeg', quality);
+                    const base64 = dataUrl.split(',')[1];
+                    console.log(`[ImageCompression] Original: ${(file.size / 1024).toFixed(1)} KB -> Compressed: ${(base64.length * 0.75 / 1024).toFixed(1)} KB (${width}x${height})`);
+                    resolve(base64);
+                };
+                img.onerror = (err) => {
+                    URL.revokeObjectURL(objectUrl);
+                    console.warn("[ImageCompression] URL.createObjectURL failed, falling back to FileReader:", err);
+                    const reader = new FileReader();
+                    reader.onload = async (e) => {
+                        const rawB64 = e.target.result.split(',')[1];
+                        const compressed = await compressBase64(rawB64, maxDimension, quality);
+                        resolve(compressed);
+                    };
+                    reader.onerror = rErr => reject(rErr);
+                    reader.readAsDataURL(file);
+                };
+                img.src = objectUrl;
             });
         }
 
@@ -1216,7 +1251,7 @@
             }
 
             // Downscale and compress image to avoid Vercel 4.5MB payload limit
-            uploadedImageBase64 = await compressAndResizeImage(file, 1280, 0.8);
+            uploadedImageBase64 = await compressAndResizeImage(file, 1024, 0.75);
             if (confirmImagePreview) {
                 confirmImagePreview.src = `data:image/jpeg;base64,${uploadedImageBase64}`;
             }
@@ -1248,7 +1283,19 @@
 
         // Submit the final payload
         async function submitFinalReport() {
-            const currentImg = uploadedImageBase64;
+            let currentImg = uploadedImageBase64;
+            if (!currentImg) {
+                alert('Please select or capture a valid defect image first.');
+                resetInterface();
+                return;
+            }
+
+            // Secondary safety check: ensure payload string size is safely below 1MB
+            if (currentImg.length > 1024 * 1024) {
+                console.log('[submitFinalReport] Image exceeds 1MB, performing secondary downscale...');
+                currentImg = await compressBase64(currentImg, 960, 0.7);
+            }
+
             const scanningPreviewImg = document.getElementById('scanning-preview-img');
             if (scanningPreviewImg && currentImg) {
                 scanningPreviewImg.src = `data:image/jpeg;base64,${currentImg}`;
@@ -1680,14 +1727,41 @@
             }
         });
 
-        // --- PWA Service Worker Registration ---
+        // --- PWA Service Worker Registration & Auto-Update ---
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js')
-                    .then(reg => console.log('PWA Service Worker registered successfully:', reg.scope))
-                    .catch(err => console.error('PWA Service Worker registration failed:', err));
+                navigator.serviceWorker.register('/sw.js').then(reg => {
+                    console.log('PWA Service Worker registered:', reg.scope);
+                    reg.update();
+                }).catch(err => console.error('PWA SW error:', err));
+
+                let refreshing = false;
+                navigator.serviceWorker.addEventListener('controllerchange', () => {
+                    if (!refreshing) {
+                        refreshing = true;
+                        console.log('New Service Worker controller activated, reloading page for fresh code...');
+                        window.location.reload();
+                    }
+                });
             });
         }
+
+        // Global cache purge and refresh helper
+        window.clearAppCacheAndReload = async function() {
+            try {
+                if ('serviceWorker' in navigator) {
+                    const registrations = await navigator.serviceWorker.getRegistrations();
+                    for (let r of registrations) await r.unregister();
+                }
+                if ('caches' in window) {
+                    const cacheKeys = await caches.keys();
+                    for (let k of cacheKeys) await caches.delete(k);
+                }
+            } catch (e) {
+                console.warn('Error clearing caches:', e);
+            }
+            window.location.href = window.location.origin + window.location.pathname + '?reload=' + Date.now();
+        };
     </script>
 </body>
 </html>
