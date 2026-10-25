@@ -382,7 +382,7 @@
 
                         <!-- Main Image Trigger -->
                         <div>
-                            <input type="file" id="image-upload" class="hidden" accept="image/jpeg, image/png">
+                            <input type="file" id="image-upload" class="hidden" accept="image/*">
                             <button id="upload-button" class="w-full font-black py-4 px-5 rounded-2xl flex items-center justify-center space-x-2 text-sm shadow-md transition duration-200 cursor-pointer hover:opacity-90" style="background-color: #6495ED !important; color: #ffffff !important; border: none;">
                                 <svg class="w-5 h-5" style="color: #ffffff;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
                                 <span style="color: #ffffff; font-weight: 800;">Upload Pothole Image</span>
@@ -1147,13 +1147,41 @@
             }
         }
 
-        // Convert file inputs to base64
-        function fileToBase64(file) {
+        // Downscale and compress image client-side to strictly prevent Vercel 413 FUNCTION_PAYLOAD_TOO_LARGE
+        function compressAndResizeImage(file, maxDimension = 1280, quality = 0.8) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
-                reader.readAsDataURL(file);
-                reader.onload = () => resolve(reader.result.split(',')[1]);
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        let { width, height } = img;
+                        if (width > maxDimension || height > maxDimension) {
+                            if (width > height) {
+                                height = Math.round((height * maxDimension) / width);
+                                width = maxDimension;
+                            } else {
+                                width = Math.round((width * maxDimension) / height);
+                                height = maxDimension;
+                            }
+                        }
+                        const canvas = document.createElement('canvas');
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+                        const dataUrl = canvas.toDataURL('image/jpeg', quality);
+                        const base64 = dataUrl.split(',')[1];
+                        console.log(`[ImageCompression] Original: ${(file.size / 1024).toFixed(1)} KB -> Compressed: ${(base64.length * 0.75 / 1024).toFixed(1)} KB (${width}x${height})`);
+                        resolve(base64);
+                    };
+                    img.onerror = () => {
+                        console.warn("[ImageCompression] Canvas decode fallback, using raw image");
+                        resolve(e.target.result.split(',')[1]);
+                    };
+                    img.src = e.target.result;
+                };
                 reader.onerror = err => reject(err);
+                reader.readAsDataURL(file);
             });
         }
 
@@ -1187,7 +1215,8 @@
                 return;
             }
 
-            uploadedImageBase64 = await fileToBase64(file);
+            // Downscale and compress image to avoid Vercel 4.5MB payload limit
+            uploadedImageBase64 = await compressAndResizeImage(file, 1280, 0.8);
             if (confirmImagePreview) {
                 confirmImagePreview.src = `data:image/jpeg;base64,${uploadedImageBase64}`;
             }
@@ -1238,9 +1267,16 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ image: currentImg, location: currentLocation })
                 });
-                const result = await response.json();
+
+                let result;
+                try {
+                    result = await response.json();
+                } catch (parseErr) {
+                    const rawText = await response.text().catch(() => '');
+                    throw new Error(rawText || `Server returned HTTP ${response.status}`);
+                }
                 
-                if (!response.ok) throw new Error(result.message || 'Error executing endpoint.');
+                if (!response.ok) throw new Error(result.message || `Server error (${response.status})`);
                 
                 resultTitle.textContent = result.title;
                 resultMessage.textContent = result.message;

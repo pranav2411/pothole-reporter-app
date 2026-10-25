@@ -14,6 +14,15 @@ import axios from 'axios';
 import { Resend } from 'resend';
 import { createCanvas, loadImage } from '@napi-rs/canvas';
 
+// --- VERCEL SERVERLESS CONFIGURATION ---
+export const config = {
+    api: {
+        bodyParser: {
+            sizeLimit: '4.5mb',
+        },
+    },
+};
+
 // --- CONFIGURATION & ENV SETUP ---
 const ROBOFLOW_API_KEY = process.env.ROBOFLOW_API_KEY;
 const WEATHER_API_KEY = process.env.WEATHER_API_KEY;
@@ -438,7 +447,7 @@ async function annotateImage(base64Image, predictions) {
             ctx.fillText(label, x, textY);
         });
 
-        return canvas.toDataURL('image/jpeg').split(',')[1];
+        return canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
     } catch (error) {
         console.error('Failed to annotate image:', error.message);
         return base64Image;
